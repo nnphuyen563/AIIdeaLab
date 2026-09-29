@@ -101,6 +101,12 @@ export const ChevronRight: React.FC<IconProps> = ({ size = defaultProps.size, co
   </svg>
 );
 
+export const ChevronLeft: React.FC<IconProps> = ({ size = defaultProps.size, color = defaultProps.color, strokeWidth = defaultProps.strokeWidth, style, ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="square" strokeLinejoin="miter" style={style} {...props}>
+    <polyline points="15 18 9 12 15 6" />
+  </svg>
+);
+
 export const Smartphone: React.FC<IconProps> = ({ size = defaultProps.size, color = defaultProps.color, strokeWidth = defaultProps.strokeWidth, style, ...props }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="square" strokeLinejoin="miter" style={style} {...props}>
     <rect x="6" y="2" width="12" height="20" rx="1.5" />
@@ -556,3 +562,12 @@ export const Scale: React.FC<IconProps> = ({ size = defaultProps.size, color = d
     <path d="M13 6l4-2 4 2-4 5z" />
   </svg>
 );
+
+export const LogOut: React.FC<IconProps> = ({ size = defaultProps.size, color = defaultProps.color, strokeWidth = defaultProps.strokeWidth, style, ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="square" strokeLinejoin="miter" style={style} {...props}>
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <polyline points="16 17 21 12 16 7" />
+    <line x1="21" y1="12" x2="9" y2="12" />
+  </svg>
+);
+

@@ -21,7 +21,10 @@ import {
   CanvasScreen,
   runSyntheticAiTest, 
   GrillMeChatMessage,
-  chatWithGrillMeArchitect
+  chatWithGrillMeArchitect,
+  evaluateAiNecessity,
+  AiNecessityScorecard,
+  computeProceduralAiNecessity
 } from '../../services/aiService';
 import '../../styles/validator.css';
 
@@ -56,6 +59,23 @@ export const AiFeatureValidatorDrawer: React.FC<AiFeatureValidatorDrawerProps> =
   } | null>(null);
   const [isCustomTesting, setIsCustomTesting] = useState(false);
   const [copiedSchema, setCopiedSchema] = useState(false);
+  const [necessityScorecard, setNecessityScorecard] = useState<AiNecessityScorecard | null>(null);
+  const [isLoadingNecessity, setIsLoadingNecessity] = useState(false);
+
+  // Load AI Necessity Scorecard when drawer opens
+  useEffect(() => {
+    if (isOpen && spec) {
+      setIsLoadingNecessity(true);
+      const activeVariantHtml = activeScreen?.variants?.find(v => v.id === activeScreen.activeVariantId)?.htmlContent 
+        || activeScreen?.variants?.[0]?.htmlContent 
+        || '';
+
+      evaluateAiNecessity(ideaPrompt, spec.featureName, activeVariantHtml)
+        .then(res => setNecessityScorecard(res))
+        .catch(() => setNecessityScorecard(computeProceduralAiNecessity(ideaPrompt, spec.featureName)))
+        .finally(() => setIsLoadingNecessity(false));
+    }
+  }, [isOpen, spec?.featureName, ideaPrompt, activeScreen]);
 
   // ====== REALTIME GRILL-ME CHAT STATE (Grounded in Idea & Canvas) ======
   const [chatMessages, setChatMessages] = useState<GrillMeChatMessage[]>([]);
@@ -416,9 +436,81 @@ Dữ liệu đầu vào (Input) của tính năng này sẽ lấy từ người 
               <div className="validator-card necessity-card">
                 <div className="card-headline">
                   <ShieldCheck style={{ width: 16, height: 16, color: '#10B981' }} />
-                  <h4>Thẩm định: Có thực sự cần AI cho tính năng này?</h4>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <h4 style={{ margin: 0 }}>Thẩm định: Có thực sự cần AI cho tính năng này?</h4>
+                    {necessityScorecard && (
+                      <span 
+                        className="status-pill" 
+                        style={{ 
+                          background: `${necessityScorecard.architectureRecommendation.badgeColor}20`, 
+                          color: necessityScorecard.architectureRecommendation.badgeColor,
+                          border: `1px solid ${necessityScorecard.architectureRecommendation.badgeColor}40`
+                        }}
+                      >
+                        {necessityScorecard.levelBadge} ({necessityScorecard.overallScore}%)
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <p className="necessity-text">{spec.necessityReasoning}</p>
+
+                {/* Enriched AI Necessity 5-Pillar Scorecard */}
+                {isLoadingNecessity ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'rgba(255,255,255,0.5)', fontSize: '0.75rem', marginTop: '0.5rem' }}>
+                    <Loader2 style={{ width: 14, height: 14 }} className="animate-spin" />
+                    <span>Đang đo lường chỉ số cần AI (5 trụ cột)...</span>
+                  </div>
+                ) : necessityScorecard && (
+                  <div className="necessity-drawer-details" style={{ marginTop: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {/* Dimension Bars */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem' }}>
+                      {Object.entries(necessityScorecard.dimensions).map(([key, dim]) => (
+                        <div key={key} style={{ background: 'rgba(255,255,255,0.03)', padding: '0.5rem 0.65rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6875rem', fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>
+                            <span>{dim.label}</span>
+                            <span style={{ color: dim.score >= 70 ? '#10B981' : dim.score >= 40 ? '#F59E0B' : '#EF4444' }}>{dim.score}%</span>
+                          </div>
+                          <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '999px', margin: '0.3rem 0 0.2rem', overflow: 'hidden' }}>
+                            <div style={{ width: `${dim.score}%`, height: '100%', background: dim.score >= 70 ? '#10B981' : dim.score >= 40 ? '#F59E0B' : '#EF4444' }} />
+                          </div>
+                          <span style={{ fontSize: '0.625rem', color: 'rgba(255,255,255,0.5)', display: 'block', lineHeight: 1.3 }}>{dim.explanation}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Head-to-Head Comparison: Code vs AI */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem', marginTop: '0.35rem' }}>
+                      {/* Code Cổ Điển */}
+                      <div style={{ background: 'rgba(56, 189, 248, 0.04)', border: '1px solid rgba(56, 189, 248, 0.2)', borderRadius: '8px', padding: '0.75rem' }}>
+                        <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#38BDF8', textTransform: 'uppercase' }}>
+                          ⚡ Code Cổ Điển (Deterministic)
+                        </div>
+                        <div style={{ fontSize: '0.6875rem', color: 'rgba(255,255,255,0.7)', marginTop: '0.35rem' }}>
+                          <div>⏱️ Độ trễ: <strong style={{ color: '#10B981' }}>{necessityScorecard.headToHead.classicalCode.latencyEstimate}</strong></div>
+                          <div>💰 Chi phí: <strong style={{ color: '#10B981' }}>{necessityScorecard.headToHead.classicalCode.costPer10k}</strong></div>
+                          <div>🎯 Ảo giác: <strong style={{ color: '#10B981' }}>0%</strong></div>
+                        </div>
+                      </div>
+
+                      {/* Giải Pháp AI */}
+                      <div style={{ background: 'rgba(16, 185, 129, 0.04)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '8px', padding: '0.75rem' }}>
+                        <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#10B981', textTransform: 'uppercase' }}>
+                          🧠 Giải Pháp AI (Probabilistic)
+                        </div>
+                        <div style={{ fontSize: '0.6875rem', color: 'rgba(255,255,255,0.7)', marginTop: '0.35rem' }}>
+                          <div>⏱️ Độ trễ: <strong style={{ color: '#F59E0B' }}>{necessityScorecard.headToHead.aiSolution.latencyEstimate}</strong></div>
+                          <div>💰 Chi phí: <strong style={{ color: '#F59E0B' }}>{necessityScorecard.headToHead.aiSolution.costPer10k}</strong></div>
+                          <div>🎯 Rủi ro: <strong>{necessityScorecard.headToHead.aiSolution.hallucinationRisk}</strong></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Recommendation Notice */}
+                    <div style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '6px', padding: '0.5rem 0.65rem', fontSize: '0.71875rem', color: 'rgba(245, 158, 11, 0.95)' }}>
+                      <strong>Lời khuyên Kiến trúc:</strong> {necessityScorecard.architectureRecommendation.summary}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Side-by-Side I/O Contract */}

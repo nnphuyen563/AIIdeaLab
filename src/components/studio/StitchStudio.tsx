@@ -34,7 +34,8 @@ import {
   Compass,
   Sun,
   Moon,
-  TestTube
+  TestTube,
+  LogOut
 } from '../ui/icons/CyberIcons';
 import { ApiKeyModal } from '../settings/ApiKeyModal';
 import { FeasibilityPanel } from '../feasibility/FeasibilityPanel';
@@ -53,7 +54,9 @@ import {
   AiFeatureIoSpec,
   generateAiFeatureValidation,
   detectAiFeatures,
-  generateContinuationScreen
+  generateContinuationScreen,
+  performAiHealthCheck,
+  AiHealthCheckResult
 } from '../../services/aiService';
 import { 
   UserDesign, 
@@ -62,7 +65,8 @@ import {
   loadUserLocker, 
   getCurrentAuthUser,
   AuthUser,
-  checkSupabaseTableStatus
+  checkSupabaseTableStatus,
+  logoutUser
 } from '../../services/supabaseService';
 import { LockerAuthModal } from '../auth/LockerAuthModal';
 import '../../styles/studio.css';
@@ -77,6 +81,7 @@ interface StitchStudioProps {
   theme?: 'dark' | 'light';
   onToggleTheme?: () => void;
   onBackToHero?: () => void;
+  onLogout?: () => void;
 }
 
 export const StitchStudio: React.FC<StitchStudioProps> = ({
@@ -87,7 +92,8 @@ export const StitchStudio: React.FC<StitchStudioProps> = ({
   initialVariantCount = 3,
   theme = 'dark',
   onToggleTheme,
-  onBackToHero
+  onBackToHero,
+  onLogout
 }) => {
   const [promptText, setPromptText] = useState('');
   const [variantCount, setVariantCount] = useState<number>(initialVariantCount);
@@ -131,6 +137,36 @@ export const StitchStudio: React.FC<StitchStudioProps> = ({
     };
   }, [initialPrompt]);
 
+  // ====== PROACTIVE AI HEALTH CHECK STATE ======
+  const [aiHealth, setAiHealth] = useState<AiHealthCheckResult | null>(null);
+  const [isCheckingAiHealth, setIsCheckingAiHealth] = useState<boolean>(true);
+
+  useEffect(() => {
+    let active = true;
+    setIsCheckingAiHealth(true);
+    performAiHealthCheck().then(res => {
+      if (active) {
+        setAiHealth(res);
+        setIsCheckingAiHealth(false);
+      }
+    }).catch(err => {
+      if (active) {
+        setAiHealth({
+          ok: false,
+          provider: 'gemini',
+          model: 'gemini-2.5-flash-lite',
+          latencyMs: 0,
+          message: err?.message || 'Không thể kiểm tra AI'
+        });
+        setIsCheckingAiHealth(false);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   // Canvas Pan & Zoom State (Matches 22% in screenshot)
   const [zoom, setZoom] = useState<number>(0.28);
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 340, y: 140 });
@@ -171,6 +207,35 @@ export const StitchStudio: React.FC<StitchStudioProps> = ({
     tableExists: false,
     url: ''
   });
+
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const handleStudioLogout = async () => {
+    await logoutUser();
+    setCurrentUser(null);
+    setShowAuthModal(false);
+    setShowUserMenu(false);
+    if (onLogout) {
+      onLogout();
+    } else if (onBackToHero) {
+      onBackToHero();
+    }
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+    if (showUserMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showUserMenu]);
 
   // ====== DESIGN SYSTEM & DESIGN.MD STATE ======
   const [selectedPresetId] = useState<string>(initialPresetId || 'alexandria');
@@ -306,7 +371,8 @@ export const StitchStudio: React.FC<StitchStudioProps> = ({
     const screenDefs = stepMetadata;
 
     return screenDefs.slice(0, safeCount).map(def => {
-      const v1Html = (def.screenIdx === 0 && concept?.mockHtml)
+      const isSlopHtml = Boolean(concept?.mockHtml && (concept.mockHtml.includes('<select') || concept.mockHtml.includes('type="file"')));
+      const v1Html = (def.screenIdx === 0 && concept?.mockHtml && !isSlopHtml)
         ? concept.mockHtml
         : synthesizePrototypeHtml(prompt, platform, activePreset, concept?.designMd, def.screenIdx, 0);
 
@@ -647,11 +713,34 @@ export const StitchStudio: React.FC<StitchStudioProps> = ({
     }
   };
 
+  // ====== GRILL ME CONTEXT EXTRACTION ======
+  const getGrillMeContextSummary = (): string => {
+    const parts: string[] = [];
+    if (initialConcept?.summary) {
+      parts.push(`Ý đồ sản phẩm: ${initialConcept.summary}`);
+    }
+    if (aiFeatureSpec) {
+      parts.push(`Tính năng AI: ${aiFeatureSpec.featureName} (Mức cần thiết: ${aiFeatureSpec.aiNecessityScore}/100)`);
+      if (aiFeatureSpec.failureAndRisk) {
+        parts.push(`Rủi ro & Dung sai lỗi: Ảo giác=${aiFeatureSpec.failureAndRisk.hallucinationRisk}, ${aiFeatureSpec.failureAndRisk.safetyConsiderations}`);
+      }
+      const answered = aiFeatureSpec.grillMeQuestions?.filter(q => q.userAnswer) || [];
+      if (answered.length > 0) {
+        parts.push('Ngữ cảnh đã làm rõ từ phỏng vấn Grill Me:');
+        answered.forEach(q => {
+          parts.push(`• Câu hỏi: "${q.question}" -> Người dùng chốt: "${q.userAnswer}"`);
+        });
+      }
+    }
+    return parts.join('\n');
+  };
+
   // ====== CANVAS CONTEXT COPILOT HANDLERS ======
   const handleCanvasCopilotSubmit = async (promptOverride?: string, actionOverride?: CanvasCopilotAction) => {
     if (!activeScreen || !activeVariant) return;
 
     const actionToRun = actionOverride || activeCopilotAction;
+    const isFromDrawer = Boolean(drawerInputText.trim());
     const textPrompt = promptOverride !== undefined ? promptOverride : (drawerInputText || promptText);
 
     if (actionToRun === 'chat' && !textPrompt.trim()) return;
@@ -674,7 +763,15 @@ export const StitchStudio: React.FC<StitchStudioProps> = ({
 
     setPromptText('');
     setDrawerInputText('');
-    setShowCanvasInspector(true);
+    
+    // When executing usability or feasibility, or when chatting inside the drawer:
+    // ALWAYS open/keep the drawer open!
+    if (actionToRun === 'usability' || actionToRun === 'feasibility' || isFromDrawer) {
+      setShowCanvasInspector(true);
+      if (actionToRun === 'usability') setInspectorActiveTab('usability');
+      else if (actionToRun === 'feasibility') setInspectorActiveTab('feasibility');
+      else setInspectorActiveTab('chat');
+    }
 
     try {
       const historyForApi = (screenChatThreads[activeScreen.id] || []).map(m => ({
@@ -690,8 +787,16 @@ export const StitchStudio: React.FC<StitchStudioProps> = ({
         targetPlatform,
         selectedPresetId,
         designMd,
-        historyForApi
+        historyForApi,
+        initialPrompt,
+        initialConcept?.summary,
+        getGrillMeContextSummary()
       );
+
+      // Auto-apply redesign directly to active screen variant without requiring manual drawer clicks
+      if (response.redesignHtml) {
+        applyRedesignReplaceCurrent(response.redesignHtml);
+      }
 
       const assistantMsgId = `asst_${Date.now()}`;
       const assistantMessage: CanvasScreenChatMessage = {
@@ -714,7 +819,6 @@ export const StitchStudio: React.FC<StitchStudioProps> = ({
 
       if (actionToRun === 'usability') setInspectorActiveTab('usability');
       else if (actionToRun === 'feasibility') setInspectorActiveTab('feasibility');
-      else setInspectorActiveTab('chat');
 
     } catch (err) {
       console.error('Canvas copilot interaction error:', err);
@@ -731,6 +835,108 @@ export const StitchStudio: React.FC<StitchStudioProps> = ({
     } finally {
       setIsCopilotLoading(false);
     }
+  };
+
+  const handleGenerateThreeVariants = async () => {
+    if (!activeScreen) return;
+    setIsGenerating(true);
+    try {
+      const activePreset = STITCH_PRESETS[selectedPresetId] || STITCH_PRESETS.alexandria;
+      const count = activeScreen.variants.length;
+
+      const variantConfigs = [
+        {
+          name: `v${count + 1} - Tối giản & Tinh gọn`,
+          summary: 'Phong cách Minimalist: Giản lược viền thẻ, tăng khoảng cách trắng, tập trung vào nội dung chính',
+          tokens: [activePreset.baseBg, '#38BDF8', '#FFFFFF']
+        },
+        {
+          name: `v${count + 2} - Tương phản cao & Thể thao`,
+          summary: 'Phong cách High-Contrast: Đậm nét, nền đen sâu, điểm nhấn màu vàng chanh/neon rực rỡ',
+          tokens: ['#0A0D14', '#F59E0B', '#FFFFFF']
+        },
+        {
+          name: `v${count + 3} - Nút lớn & Tối ưu chạm`,
+          summary: 'Phong cách Touch-First: Nút bấm lớn tối thiểu 48px, cỡ chữ lớn, tối ưu thao tác 1 tay',
+          tokens: [activePreset.baseBg, '#10B981', '#F8FAFC']
+        }
+      ];
+
+      const newVariants = variantConfigs.map((cfg, idx) => {
+        const newHtml = synthesizePrototypeHtml(
+          `${activeScreen.title} (${cfg.summary})`,
+          targetPlatform,
+          activePreset,
+          designMd,
+          activeScreen.flowStep,
+          count + 1 + idx
+        );
+        return {
+          id: `v${activeScreen.flowStep}_${count + 1 + idx}`,
+          name: cfg.name,
+          htmlContent: newHtml,
+          designTokens: cfg.tokens,
+          summary: cfg.summary,
+          createdAt: Date.now() + idx
+        };
+      });
+
+      const updatedScreens = screens.map(s => {
+        if (s.id === activeScreen.id) {
+          return {
+            ...s,
+            variants: [...s.variants, ...newVariants],
+            activeVariantId: newVariants[0].id
+          };
+        }
+        return s;
+      });
+
+      setScreens(updatedScreens);
+    } catch (err) {
+      console.error('Generate 3 variants error:', err);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleApplyColorPaletteToScreen = (presetKey: string) => {
+    if (!activeScreen) return;
+    const targetPreset = STITCH_PRESETS[presetKey];
+    if (!targetPreset) return;
+
+    const count = activeScreen.variants.length;
+    const newHtml = synthesizePrototypeHtml(
+      activeScreen.title,
+      targetPlatform,
+      targetPreset,
+      designMd,
+      activeScreen.flowStep,
+      count + 1
+    );
+
+    const newVariantId = `v${activeScreen.flowStep}_${count + 1}`;
+    const newVariant = {
+      id: newVariantId,
+      name: `v${count + 1} - Bảng màu ${targetPreset.name}`,
+      htmlContent: newHtml,
+      designTokens: [targetPreset.baseBg, targetPreset.primaryAccent, '#FFFFFF'],
+      summary: `Áp dụng dải màu ${targetPreset.name} (${targetPreset.atmosphere})`,
+      createdAt: Date.now()
+    };
+
+    const updatedScreens = screens.map(s => {
+      if (s.id === activeScreen.id) {
+        return {
+          ...s,
+          variants: [...s.variants, newVariant],
+          activeVariantId: newVariantId
+        };
+      }
+      return s;
+    });
+
+    setScreens(updatedScreens);
   };
 
   const applyRedesignAsNewVariant = (redesignHtml: string, summary: string, tokens: string[]) => {
@@ -839,11 +1045,51 @@ export const StitchStudio: React.FC<StitchStudioProps> = ({
           >
             <Menu style={{ width: 18, height: 18 }} />
           </button>
-          <span className="exact-doc-title">{initialPrompt || 'Retro Pong Hero Section'}</span>
+          <span 
+            className="exact-doc-title" 
+            title={initialPrompt || 'Retro Pong Hero Section'}
+          >
+            {initialPrompt && initialPrompt.length > 52 ? `${initialPrompt.slice(0, 50)}...` : initialPrompt || 'Retro Pong Hero Section'}
+          </span>
         </div>
 
         {/* Right: Play, Export, Share, User Profile */}
         <div className="exact-topbar-right">
+          {/* Live AI Status & Quick Provider Switch Button */}
+          <button 
+            type="button" 
+            className="exact-topbar-pill-btn"
+            onClick={() => setShowApiKeyModal(true)}
+            title={aiHealth?.message ? `AI Status: ${aiHealth.message}. Bấm để đổi giữa OpenAI / Google Gemini hoặc nạp khóa.` : 'Kiểm tra trạng thái AI'}
+            style={{
+              background: aiHealth?.ok ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+              borderColor: aiHealth?.ok ? 'rgba(16, 185, 129, 0.35)' : 'rgba(245, 158, 11, 0.35)',
+              color: aiHealth?.ok ? '#34D399' : '#FBBF24',
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              cursor: 'pointer'
+            }}
+          >
+            <span style={{
+              width: 7,
+              height: 7,
+              borderRadius: '50%',
+              backgroundColor: aiHealth?.ok ? '#10B981' : '#F59E0B',
+              boxShadow: aiHealth?.ok ? '0 0 8px #10B981' : '0 0 8px #F59E0B'
+            }} />
+            <span>
+              {isCheckingAiHealth 
+                ? 'Đang kiểm tra AI...' 
+                : aiHealth?.ok 
+                  ? `${aiHealth.provider === 'openai' ? 'OpenAI' : 'Gemini'} Live (${aiHealth.latencyMs}ms)`
+                  : 'AI: Chọn OpenAI / Gemini'}
+            </span>
+          </button>
+
           {/* Create New Screen Frame Button */}
           <button 
             type="button" 
@@ -856,7 +1102,9 @@ export const StitchStudio: React.FC<StitchStudioProps> = ({
               fontWeight: 600,
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.35rem'
+              gap: '0.35rem',
+              whiteSpace: 'nowrap',
+              flexShrink: 0
             }}
             title="Tạo Màn Hình Mới Tiếp Nối Luồng (Kèm Context Canvas)"
           >
@@ -874,7 +1122,9 @@ export const StitchStudio: React.FC<StitchStudioProps> = ({
               background: detectedAi.hasAiFeature ? (theme === 'light' ? 'rgba(5, 150, 105, 0.1)' : 'rgba(16, 185, 129, 0.14)') : undefined,
               borderColor: detectedAi.hasAiFeature ? (theme === 'light' ? '#059669' : '#10B981') : undefined,
               color: detectedAi.hasAiFeature ? (theme === 'light' ? '#059669' : '#34D399') : undefined,
-              fontWeight: detectedAi.hasAiFeature ? 600 : 500
+              fontWeight: detectedAi.hasAiFeature ? 600 : 500,
+              whiteSpace: 'nowrap',
+              flexShrink: 0
             }}
           >
             <TestTube style={{ width: 13, height: 13, color: detectedAi.hasAiFeature ? (theme === 'light' ? '#059669' : '#34D399') : '#94A3B8' }} />
@@ -936,15 +1186,168 @@ export const StitchStudio: React.FC<StitchStudioProps> = ({
             </button>
           )}
 
-          {/* User Locker Profile Avatar */}
-          <button 
-            type="button"
-            className="exact-avatar-btn"
-            onClick={() => setShowAuthModal(true)}
-            title={`Locker: ${currentUser?.handle || userId} (Nhấn để đăng nhập hoặc đổi tài khoản)`}
-          >
-            {(currentUser?.handle || userId).charAt(0).toUpperCase()}
-          </button>
+          {/* User Locker Profile Avatar & Dropdown */}
+          <div ref={userMenuRef} style={{ position: 'relative' }}>
+            <button 
+              type="button"
+              className="exact-avatar-btn"
+              onClick={() => {
+                if (currentUser) {
+                  setShowUserMenu(!showUserMenu);
+                } else {
+                  setShowAuthModal(true);
+                }
+              }}
+              title={currentUser ? `Tài khoản: ${currentUser.handle} (Nhấp để mở menu / Đăng xuất)` : 'Đăng nhập vào Locker'}
+            >
+              {(currentUser?.handle || userId).charAt(0).toUpperCase()}
+            </button>
+
+            {/* Quick Account Dropdown */}
+            {showUserMenu && currentUser && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 8px)',
+                  right: 0,
+                  width: '240px',
+                  background: theme === 'light' ? '#FFFFFF' : '#0E131F',
+                  border: theme === 'light' ? '1.5px solid rgba(15, 23, 42, 0.12)' : '1px solid rgba(255, 255, 255, 0.16)',
+                  borderRadius: '14px',
+                  padding: '0.6rem',
+                  boxShadow: '0 20px 50px rgba(0, 0, 0, 0.65)',
+                  zIndex: 10000
+                }}
+              >
+                {/* User Info Header */}
+                <div style={{
+                  padding: '0.5rem 0.6rem 0.6rem',
+                  borderBottom: theme === 'light' ? '1px solid rgba(15, 23, 42, 0.08)' : '1px solid rgba(255, 255, 255, 0.08)',
+                  marginBottom: '0.4rem'
+                }}>
+                  <div style={{ fontSize: '0.75rem', color: theme === 'light' ? '#64748B' : '#94A3B8' }}>
+                    Tài khoản đang mở
+                  </div>
+                  <div style={{
+                    fontSize: '0.9375rem',
+                    fontWeight: 700,
+                    color: theme === 'light' ? '#0F172A' : '#F8FAFC',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    marginTop: '2px'
+                  }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981' }} />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {currentUser.handle}
+                    </span>
+                  </div>
+                  {currentUser.email && (
+                    <div style={{ fontSize: '0.75rem', color: theme === 'light' ? '#94A3B8' : '#64748B', marginTop: '2px' }}>
+                      {currentUser.email}
+                    </div>
+                  )}
+                </div>
+
+                {/* Locker Designs */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    setShowLockerModal(true);
+                  }}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.6rem',
+                    padding: '0.5rem 0.6rem',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: 'transparent',
+                    color: theme === 'light' ? '#1E293B' : '#E2E8F0',
+                    fontSize: '0.84rem',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    textAlign: 'left'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = theme === 'light' ? 'rgba(15, 23, 42, 0.05)' : 'rgba(255, 255, 255, 0.06)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  <FolderLock style={{ width: 14, height: 14, color: '#10B981' }} />
+                  <span>Kho lưu trữ Locker</span>
+                </button>
+
+                {/* Switch Account */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    setShowAuthModal(true);
+                  }}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.6rem',
+                    padding: '0.5rem 0.6rem',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: 'transparent',
+                    color: theme === 'light' ? '#1E293B' : '#E2E8F0',
+                    fontSize: '0.84rem',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    textAlign: 'left'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = theme === 'light' ? 'rgba(15, 23, 42, 0.05)' : 'rgba(255, 255, 255, 0.06)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  <Star style={{ width: 14, height: 14, color: '#38BDF8' }} />
+                  <span>Đổi tài khoản</span>
+                </button>
+
+                {/* Logout and return to main screen */}
+                <button
+                  type="button"
+                  onClick={handleStudioLogout}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.6rem',
+                    padding: '0.5rem 0.6rem',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    background: 'rgba(239, 68, 68, 0.08)',
+                    color: '#EF4444',
+                    fontSize: '0.84rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    marginTop: '0.35rem'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.18)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
+                  }}
+                >
+                  <LogOut style={{ width: 14, height: 14, color: '#EF4444' }} />
+                  <span>Đăng xuất &amp; Về trang chính</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -1061,27 +1464,14 @@ export const StitchStudio: React.FC<StitchStudioProps> = ({
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                     <button
                       type="button"
-                      className="screen-card-chat-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveScreenId(screen.id);
-                        setShowCanvasInspector(true);
-                      }}
-                      title="Mở Copilot hội thoại và cố vấn về màn hình này"
-                    >
-                      <MessageSquare style={{ width: 11, height: 11 }} />
-                      <span>Hội thoại AI</span>
-                    </button>
-                    <button
-                      type="button"
-                      style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: 2 }}
+                      style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                       onClick={(e) => {
                         e.stopPropagation();
                         setFullscreenHtml(variant.htmlContent);
                       }}
                       title="Xem toàn màn hình"
                     >
-                      <Maximize2 style={{ width: 11, height: 11 }} />
+                      <Maximize2 style={{ width: 12, height: 12 }} />
                     </button>
                   </div>
                 </div>
@@ -1123,8 +1513,20 @@ export const StitchStudio: React.FC<StitchStudioProps> = ({
       </main>
 
       {/* =================================================================== */}
-      {/* 3. FLOATING LEFT PANEL (TOP): SPEC DETAILS (EXACT MATCH)            */}
+      {/* 3. FLOATING LEFT PANEL (TOP): SPEC DETAILS & TOGGLE PILL            */}
       {/* =================================================================== */}
+      {!showSpecCard && (
+        <button
+          type="button"
+          className="exact-spec-toggle-pill"
+          onClick={() => setShowSpecCard(true)}
+          title="Mở bảng Đặc tả & IDE Workspace"
+        >
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#10B981' }} />
+          <span>⚡ IDE Workspace ▶</span>
+        </button>
+      )}
+
       {showSpecCard && (
         <aside className="exact-floating-spec">
           <div className="exact-spec-top-row">
@@ -1132,21 +1534,46 @@ export const StitchStudio: React.FC<StitchStudioProps> = ({
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981' }} />
               <span>IDE Workspace</span>
             </div>
-            <button
-              type="button"
-              style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: 2 }}
-              onClick={() => setShowSpecCard(false)}
-            >
-              <X style={{ width: 14, height: 14 }} />
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <button
+                type="button"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  borderRadius: '6px',
+                  color: '#CBD5E1',
+                  fontSize: '0.6875rem',
+                  padding: '2px 7px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                onClick={() => setShowSpecCard(false)}
+                title="Thu gọn bảng điều khiển"
+              >
+                ◀ Thu gọn
+              </button>
+              <button
+                type="button"
+                style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: 2 }}
+                onClick={() => setShowSpecCard(false)}
+                title="Đóng bảng"
+              >
+                <X style={{ width: 14, height: 14 }} />
+              </button>
+            </div>
           </div>
 
           <div className="exact-spec-title-row">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <span>🎨 cho nó giống design...</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', maxWidth: '190px', overflow: 'hidden' }}>
+              <span 
+                style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                title={initialConcept?.headline || initialConcept?.title || initialPrompt}
+              >
+                🎨 {initialConcept?.headline || initialConcept?.title || 'Đặc tả Kiến trúc'}
+              </span>
               <button 
                 type="button" 
-                style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer' }}
+                style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', flexShrink: 0 }}
                 onClick={() => navigator.clipboard.writeText(designMd)}
                 title="Sao chép đặc tả"
               >
@@ -1155,7 +1582,7 @@ export const StitchStudio: React.FC<StitchStudioProps> = ({
             </div>
             <button
               type="button"
-              style={{ background: 'none', border: 'none', color: '#10B981', fontSize: '0.75rem', cursor: 'pointer' }}
+              style={{ background: 'none', border: 'none', color: '#10B981', fontSize: '0.75rem', cursor: 'pointer', flexShrink: 0 }}
               onClick={() => setShowDesignMdModal(true)}
             >
               DESIGN.md ⌵
@@ -1211,18 +1638,19 @@ export const StitchStudio: React.FC<StitchStudioProps> = ({
       {/* =================================================================== */}
       {/* 4. FLOATING LEFT PANEL (BOTTOM): PROMPT HISTORY & AGENT LOG         */}
       {/* =================================================================== */}
-      <aside className="exact-floating-history">
-        {historyPrompts.map((h, i) => (
-          <div 
-            key={i} 
-            className="exact-history-item"
-            onClick={() => handlePromptSubmit(h)}
-            title={`Tạo lại với: "${h}"`}
-          >
-            <Check style={{ width: 12, height: 12, color: '#10B981', flexShrink: 0 }} />
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{h}</span>
-          </div>
-        ))}
+      {showSpecCard && (
+        <aside className="exact-floating-history">
+          {historyPrompts.map((h, i) => (
+            <div 
+              key={i} 
+              className="exact-history-item"
+              onClick={() => handlePromptSubmit(h)}
+              title={`Tạo lại với: "${h}"`}
+            >
+              <Check style={{ width: 12, height: 12, color: '#10B981', flexShrink: 0 }} />
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{h}</span>
+            </div>
+          ))}
 
         <button 
           type="button" 
@@ -1256,6 +1684,7 @@ export const StitchStudio: React.FC<StitchStudioProps> = ({
           </div>
         )}
       </aside>
+      )}
 
       {/* =================================================================== */}
       {/* 5. FLOATING RIGHT VERTICAL TOOLBAR                                  */}
@@ -1374,9 +1803,17 @@ export const StitchStudio: React.FC<StitchStudioProps> = ({
                 className={`exact-chip-btn ${activeCopilotAction === 'redesign' ? 'active' : ''}`}
                 onClick={() => {
                   setActiveCopilotAction('redesign');
-                  setShowCanvasInspector(true);
+                  setShowCanvasInspector(false);
+                  setPromptText('Thiết kế lại: ');
+                  setTimeout(() => {
+                    const textarea = document.querySelector('.exact-prompt-textarea') as HTMLTextAreaElement | null;
+                    if (textarea) {
+                      textarea.focus();
+                      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+                    }
+                  }, 50);
                 }}
-                title="Thiết kế lại hoặc tạo biến thể mới cho màn hình này"
+                title="Thiết kế lại trực tiếp qua ô chat ở dưới (Enter để áp dụng ngay vào màn hình)"
               >
                 <Palette style={{ width: 12, height: 12 }} />
                 <span>Thiết kế lại</span>
@@ -1474,6 +1911,109 @@ export const StitchStudio: React.FC<StitchStudioProps> = ({
           </div>
         )}
 
+        {/* Dedicated Redesign & Visual Variants Settings Strip (When a screen is selected) */}
+        {activeScreen && (
+          <div className="exact-redesign-settings-strip">
+            <span className="redesign-strip-label">
+              <Palette style={{ width: 12, height: 12, color: '#38BDF8' }} />
+              <span>Redesign &amp; Styling:</span>
+            </span>
+
+            {/* Quick Action: + 3 Variants */}
+            <button
+              type="button"
+              className="redesign-chip-btn special-btn"
+              onClick={handleGenerateThreeVariants}
+              title="Tự động kiến tạo 3 biến thể phong cách khác nhau cho màn hình này"
+              disabled={isGenerating}
+            >
+              <Sparkles style={{ width: 11, height: 11 }} />
+              <span>+ 3 Biến thể mới</span>
+            </button>
+
+            {/* Quick Palettes */}
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+              <button
+                type="button"
+                className="redesign-chip-btn"
+                onClick={() => handleApplyColorPaletteToScreen('alexandria')}
+                title="Bảng màu Alexandria (Vàng hoàng gia & Xanh thẫm)"
+              >
+                <span className="redesign-palette-pill" style={{ background: '#D97706' }} />
+                <span>Alexandria</span>
+              </button>
+
+              <button
+                type="button"
+                className="redesign-chip-btn"
+                onClick={() => handleApplyColorPaletteToScreen('bauhaus')}
+                title="Bảng màu Bauhaus (Đỏ rực & Vàng nghệ thuật)"
+              >
+                <span className="redesign-palette-pill" style={{ background: '#EF4444' }} />
+                <span>Bauhaus</span>
+              </button>
+
+              <button
+                type="button"
+                className="redesign-chip-btn"
+                onClick={() => handleApplyColorPaletteToScreen('glacier')}
+                title="Bảng màu Glacier (Xanh băng tuyết & Cyan)"
+              >
+                <span className="redesign-palette-pill" style={{ background: '#06B6D4' }} />
+                <span>Glacier</span>
+              </button>
+
+              <button
+                type="button"
+                className="redesign-chip-btn"
+                onClick={() => handleApplyColorPaletteToScreen('neon_tokyo')}
+                title="Bảng màu Carbon Neon (Đen tuyền & Lục bảo Neon)"
+              >
+                <span className="redesign-palette-pill" style={{ background: '#10B981' }} />
+                <span>Carbon Neon</span>
+              </button>
+            </div>
+
+            {/* Quick Layout Tweaks */}
+            <button
+              type="button"
+              className="redesign-chip-btn"
+              onClick={() => handleCanvasCopilotSubmit('Tối giản bố cục, tăng khoảng đệm (padding) và làm phẳng các thẻ hiển thị', 'redesign')}
+              title="Tối giản và nới rộng khoảng cách thẻ"
+            >
+              <span>✨ Tối giản bố cục</span>
+            </button>
+
+            <button
+              type="button"
+              className="redesign-chip-btn"
+              onClick={() => handleCanvasCopilotSubmit('Tối ưu kích thước nút bấm to rõ, tăng cỡ chữ và hỗ trợ thao tác 1 tay trên di động', 'redesign')}
+              title="Nút bấm lớn và thân thiện với ngón tay"
+            >
+              <span>📱 Nút bấm lớn</span>
+            </button>
+
+            {/* Screen Variants Switcher Pills */}
+            <div className="redesign-variant-pills">
+              <span style={{ fontSize: '0.65rem', color: '#64748B' }}>Biến thể:</span>
+              {activeScreen.variants.map((v, idx) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  className={`redesign-variant-pill ${v.id === activeScreen.activeVariantId ? 'active' : ''}`}
+                  onClick={() => {
+                    const updatedScreens = screens.map(s => s.id === activeScreen.id ? { ...s, activeVariantId: v.id } : s);
+                    setScreens(updatedScreens);
+                  }}
+                  title={v.name}
+                >
+                  v{idx + 1}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Prompt Input Card */}
         <div className="exact-prompt-card">
           <textarea
@@ -1485,7 +2025,7 @@ export const StitchStudio: React.FC<StitchStudioProps> = ({
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 if (activeScreen) {
-                  handleCanvasCopilotSubmit();
+                  handleCanvasCopilotSubmit(promptText, 'redesign');
                 } else {
                   handlePromptSubmit();
                 }
@@ -1493,7 +2033,7 @@ export const StitchStudio: React.FC<StitchStudioProps> = ({
             }}
             placeholder={
               activeScreen 
-                ? `Hội thoại với "${activeScreen.title.slice(0, 24)}..." (VD: Thêm bộ lọc, kiểm tra usability, hoặc hỏi cách code...)`
+                ? `Thiết kế lại "${activeScreen.title.slice(0, 24)}..." (VD: Thêm 3 biến thể, đổi dải màu Neon, tối giản bố cục...)`
                 : "Bạn muốn thay đổi hoặc tạo nội dung gì?"
             }
           />
@@ -1631,12 +2171,12 @@ export const StitchStudio: React.FC<StitchStudioProps> = ({
                 disabled={(isGenerating || isCopilotLoading) || !promptText.trim()}
                 onClick={() => {
                   if (activeScreen) {
-                    handleCanvasCopilotSubmit();
+                    handleCanvasCopilotSubmit(promptText, 'redesign');
                   } else {
                     handlePromptSubmit();
                   }
                 }}
-                title={activeScreen ? "Gửi yêu cầu tới Canvas đang chọn (Enter)" : "Tạo màn hình mới (Enter)"}
+                title={activeScreen ? "Áp dụng thiết kế lại lên Canvas (Enter)" : "Tạo màn hình mới (Enter)"}
               >
                 {(isGenerating || isCopilotLoading) ? (
                   <Loader2 style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }} />
@@ -2112,6 +2652,43 @@ CREATE POLICY "Allow full access to user_designs" ON public.user_designs FOR ALL
             </button>
           </div>
 
+          {/* Grounding Context Info Strip */}
+          <div style={{
+            padding: '0.4rem 0.85rem',
+            background: 'rgba(56, 189, 248, 0.08)',
+            borderBottom: '1px solid rgba(56, 189, 248, 0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '0.6875rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#CBD5E1' }}>
+              <Sparkles style={{ width: 11, height: 11, color: '#38BDF8' }} />
+              <span>
+                Ngữ cảnh: {aiFeatureSpec?.grillMeQuestions?.some(q => q.userAnswer) 
+                  ? 'Đã nạp hỏi đáp Grill Me' 
+                  : 'Từ prompt & ý tưởng sản phẩm'}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowAiValidatorDrawer(true)}
+              style={{
+                background: 'rgba(16, 185, 129, 0.15)',
+                border: '1px solid rgba(16, 185, 129, 0.35)',
+                color: '#34D399',
+                borderRadius: '4px',
+                padding: '2px 7px',
+                fontSize: '0.65rem',
+                cursor: 'pointer',
+                fontWeight: 600
+              }}
+              title="Mở Grill Me để AI chất vấn thu thập thêm ngữ cảnh thực chiến"
+            >
+              ⚡ Grill Me phỏng vấn
+            </button>
+          </div>
+
           {/* Messages Stream */}
           <div className="copilot-messages-feed">
             {(!screenChatThreads[activeScreen.id] || screenChatThreads[activeScreen.id].length === 0) ? (
@@ -2571,6 +3148,20 @@ CREATE POLICY "Allow full access to user_designs" ON public.user_designs FOR ALL
         theme={theme}
         ideaPrompt={initialPrompt}
         activeScreen={activeScreen}
+      />
+
+      {/* AI API Key & Model Configuration Modal */}
+      <ApiKeyModal
+        isOpen={showApiKeyModal}
+        onClose={() => {
+          setShowApiKeyModal(false);
+          setIsCheckingAiHealth(true);
+          performAiHealthCheck().then(setAiHealth).catch(() => {}).finally(() => setIsCheckingAiHealth(false));
+        }}
+        onConfigSaved={() => {
+          setIsCheckingAiHealth(true);
+          performAiHealthCheck().then(setAiHealth).catch(() => {}).finally(() => setIsCheckingAiHealth(false));
+        }}
       />
     </div>
   );

@@ -19,6 +19,8 @@ import {
 import { 
   AiConfig, 
   AiProvider, 
+  AvailableEnvKey,
+  getAvailableEnvKeys,
   getDefaultAiConfig, 
   saveAiConfig, 
   testAiConnection 
@@ -36,6 +38,8 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   onConfigSaved
 }) => {
   const [config, setConfig] = useState<AiConfig>(getDefaultAiConfig());
+  const [availableEnvKeys, setAvailableEnvKeys] = useState<AvailableEnvKey[]>([]);
+  const [selectedEnvKeyId, setSelectedEnvKeyId] = useState<string>('');
   const [showKey, setShowKey] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -50,10 +54,36 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
     message: ''
   });
 
-  // Load latest configuration whenever modal opens
+  // Load configuration and discover .env keys whenever modal opens
   useEffect(() => {
     if (isOpen) {
-      setConfig(getDefaultAiConfig());
+      const envKeys = getAvailableEnvKeys();
+      setAvailableEnvKeys(envKeys);
+
+      const currentConfig = getDefaultAiConfig();
+      setConfig(currentConfig);
+
+      // Match current key with any discovered .env keys
+      const matched = envKeys.find(k => k.value === currentConfig.apiKey);
+      if (matched) {
+        setSelectedEnvKeyId(matched.id);
+      } else if (currentConfig.apiKey) {
+        setSelectedEnvKeyId('__custom__');
+      } else {
+        // If empty, auto-select first available key matching current provider
+        const firstMatch = envKeys.find(k => 
+          currentConfig.provider === 'openai' 
+            ? (k.providerHint === 'openai' || k.envVarName.includes('OPENAI'))
+            : (k.providerHint === 'gemini' || k.envVarName.includes('GEMINI'))
+        );
+        if (firstMatch) {
+          setSelectedEnvKeyId(firstMatch.id);
+          setConfig(prev => ({ ...prev, apiKey: firstMatch.value }));
+        } else {
+          setSelectedEnvKeyId('');
+        }
+      }
+
       setTestResult({ tested: false, success: false, message: '' });
       setSaveSuccess(false);
     }
@@ -75,16 +105,78 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   if (!isOpen) return null;
 
   const handleProviderChange = (provider: AiProvider) => {
-    let defaultModel = 'gemini-2.5-flash';
+    let defaultModel = 'gemini-flash-lite-latest';
     if (provider === 'openai') defaultModel = 'gpt-4o-mini';
     if (provider === 'custom') defaultModel = 'deepseek-chat';
+
+    // Find keys matching the selected provider
+    const keysForProvider = availableEnvKeys.filter(k => 
+      k.providerHint === provider || 
+      (provider === 'openai' && k.envVarName.toUpperCase().includes('OPENAI')) ||
+      (provider === 'gemini' && (k.envVarName.toUpperCase().includes('GEMINI') || k.envVarName.includes('AI_API')))
+    );
+
+    let nextApiKey = config.apiKey;
+    let nextEnvKeyId = selectedEnvKeyId;
+
+    // If current key doesn't match this provider's keys, switch to first available key
+    const currentKeyMatches = keysForProvider.some(k => k.value === config.apiKey);
+    if (!currentKeyMatches && keysForProvider.length > 0) {
+      nextApiKey = keysForProvider[0].value;
+      nextEnvKeyId = keysForProvider[0].id;
+    }
 
     setConfig(prev => ({
       ...prev,
       provider,
+      apiKey: nextApiKey,
       model: defaultModel
     }));
+    setSelectedEnvKeyId(nextEnvKeyId);
     setTestResult({ tested: false, success: false, message: '' });
+  };
+
+  const handleSelectEnvKey = (keyId: string) => {
+    setSelectedEnvKeyId(keyId);
+    if (!keyId) return;
+
+    if (keyId === '__custom__') {
+      return;
+    }
+
+    const found = availableEnvKeys.find(k => k.id === keyId);
+    if (found) {
+      const targetProvider = found.providerHint === 'openai' || found.envVarName.toUpperCase().includes('OPENAI')
+        ? 'openai'
+        : found.providerHint === 'gemini' || found.envVarName.toUpperCase().includes('GEMINI')
+          ? 'gemini'
+          : config.provider;
+
+      let targetModel = config.model;
+      if (targetProvider === 'openai' && config.provider !== 'openai') {
+        targetModel = 'gpt-4o-mini';
+      } else if (targetProvider === 'gemini' && config.provider !== 'gemini') {
+        targetModel = 'gemini-2.5-flash-lite';
+      }
+
+      setConfig(prev => ({
+        ...prev,
+        provider: targetProvider,
+        apiKey: found.value,
+        model: targetModel
+      }));
+      setTestResult({ tested: false, success: false, message: '' });
+    }
+  };
+
+  const handleApiKeyInput = (val: string) => {
+    setConfig(prev => ({ ...prev, apiKey: val }));
+    const match = availableEnvKeys.find(k => k.value === val.trim());
+    if (match) {
+      setSelectedEnvKeyId(match.id);
+    } else {
+      setSelectedEnvKeyId(val.trim() ? '__custom__' : '');
+    }
   };
 
   const handleTestConnection = async (e?: React.MouseEvent) => {
@@ -126,7 +218,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
     try {
       const text = await navigator.clipboard.readText();
       if (text) {
-        setConfig(prev => ({ ...prev, apiKey: text.trim() }));
+        handleApiKeyInput(text.trim());
       }
     } catch (err) {
       console.warn('Cannot read clipboard', err);
@@ -136,10 +228,25 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   const handleClearKey = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setConfig(prev => ({ ...prev, apiKey: '' }));
+    setSelectedEnvKeyId('');
     setTestResult({ tested: false, success: false, message: '' });
   };
 
   const isConfigured = Boolean(config.apiKey && config.apiKey.trim().length > 5);
+
+  // Group detected .env keys strictly by provider
+  const openaiKeys = availableEnvKeys.filter(k => k.providerHint === 'openai');
+  const geminiKeys = availableEnvKeys.filter(k => k.providerHint === 'gemini');
+
+  const relevantEnvKeys = config.provider === 'openai' 
+    ? openaiKeys 
+    : config.provider === 'gemini' 
+      ? geminiKeys 
+      : availableEnvKeys;
+
+  const otherEnvKeys = availableEnvKeys.filter(k => !relevantEnvKeys.some(r => r.id === k.id));
+  const activeMatchedKey = availableEnvKeys.find(k => k.value === config.apiKey);
+  const currentActiveEnvKey = availableEnvKeys.find(k => k.id === selectedEnvKeyId) || activeMatchedKey;
 
   const modalJSX = (
     <div 
@@ -165,7 +272,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
             <div>
               <h2 className="api-modal-title">Cấu hình Khóa AI API</h2>
               <p className="api-modal-subtitle">
-                Kết nối Google Gemini hoặc OpenAI để tự động suy luận và thiết kế giao diện từ ý tưởng.
+                Kết nối OpenAI hoặc Google Gemini để tự động suy luận và thiết kế giao diện từ ý tưởng.
               </p>
             </div>
           </div>
@@ -198,23 +305,28 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
         <div className="api-provider-tabs">
           <button
             type="button"
+            className={`provider-tab ${config.provider === 'openai' ? 'active' : ''}`}
+            onClick={() => handleProviderChange('openai')}
+            style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+          >
+            <Cpu style={{ width: 14, height: 14, color: '#10B981' }} />
+            <span>OpenAI</span>
+            {openaiKeys.length > 0 && (
+              <span className="rec-badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34D399', borderColor: 'rgba(16, 185, 129, 0.3)' }}>
+                {openaiKeys.length} khóa .env
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
             className={`provider-tab ${config.provider === 'gemini' ? 'active' : ''}`}
             onClick={() => handleProviderChange('gemini')}
             style={{ pointerEvents: 'auto', cursor: 'pointer' }}
           >
             <Sparkles style={{ width: 14, height: 14, color: '#38BDF8' }} />
             <span>Google Gemini</span>
-            <span className="rec-badge">Khuyên dùng</span>
-          </button>
-
-          <button
-            type="button"
-            className={`provider-tab ${config.provider === 'openai' ? 'active' : ''}`}
-            onClick={() => handleProviderChange('openai')}
-            style={{ pointerEvents: 'auto', cursor: 'pointer' }}
-          >
-            <Cpu style={{ width: 14, height: 14 }} />
-            <span>OpenAI</span>
+            <span className="rec-badge">Miễn phí</span>
           </button>
 
           <button
@@ -230,11 +342,107 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
 
         {/* Form Fields */}
         <div className="api-form-body">
+          {/* Pre-select from .env Select Dropdown */}
+          <div className="api-env-select-box">
+            <div className="api-field-header" style={{ marginBottom: '0.35rem' }}>
+              <label htmlFor="envKeySelect" className="api-field-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#38BDF8' }}>
+                <Sparkles style={{ width: 13, height: 13, color: '#38BDF8' }} />
+                <span>
+                  {config.provider === 'openai' 
+                    ? 'Tùy chọn Khóa OpenAI từ .env (Pre-select)' 
+                    : 'Tùy chọn Khóa AI từ .env (Pre-select)'}
+                </span>
+              </label>
+
+              {currentActiveEnvKey ? (
+                <span className="api-env-badge-active">
+                  <Check style={{ width: 10, height: 10 }} />
+                  <span>Đang dùng: {currentActiveEnvKey.envVarName}</span>
+                </span>
+              ) : (
+                <span style={{ 
+                  fontSize: '0.6875rem', 
+                  color: 'rgba(255, 255, 255, 0.5)',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  padding: '0.15rem 0.45rem',
+                  borderRadius: '9999px'
+                }}>
+                  {relevantEnvKeys.length} khóa tìm thấy
+                </span>
+              )}
+            </div>
+
+            {/* Select Dropdown for Pre-selection */}
+            <select
+              id="envKeySelect"
+              value={selectedEnvKeyId}
+              onChange={(e) => handleSelectEnvKey(e.target.value)}
+              className="api-select-input"
+              style={{
+                width: '100%',
+                background: '#090a0d',
+                borderColor: currentActiveEnvKey ? '#10B981' : 'rgba(255, 255, 255, 0.16)',
+                fontWeight: 500,
+                padding: '0.55rem 0.75rem',
+                fontSize: '0.8125rem'
+              }}
+            >
+              <option value="">-- Chọn khóa có sẵn từ file .env --</option>
+              {relevantEnvKeys.map((k, idx) => (
+                <option key={k.id} value={k.id}>
+                  🔑 {config.provider === 'openai' ? `OpenAI Khóa ${idx + 1}` : k.name}: {k.envVarName} [{k.preview}]
+                </option>
+              ))}
+              {otherEnvKeys.length > 0 && (
+                <optgroup label="Các khóa AI khác trong .env">
+                  {otherEnvKeys.map(k => (
+                    <option key={k.id} value={k.id}>
+                      🔑 {k.name} [{k.preview}]
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              <option value="__custom__">✏️ Nhập thủ công (Tự dán khóa khác)...</option>
+            </select>
+
+            {/* Quick 1-Click Key Selector Chips */}
+            {relevantEnvKeys.length > 0 && (
+              <div className="api-key-chip-group">
+                <span style={{ fontSize: '0.6875rem', color: 'rgba(255, 255, 255, 0.45)', marginRight: '2px' }}>
+                  Chọn nhanh:
+                </span>
+                {relevantEnvKeys.map((k, idx) => {
+                  const isSelected = selectedEnvKeyId ? selectedEnvKeyId === k.id : (activeMatchedKey?.id === k.id && idx === 0);
+                  return (
+                    <button
+                      key={k.id}
+                      type="button"
+                      className={`api-key-chip ${isSelected ? 'active' : ''}`}
+                      onClick={() => handleSelectEnvKey(k.id)}
+                      title={`Áp dụng ${k.envVarName}`}
+                    >
+                      <span className="chip-dot" />
+                      <span>{config.provider === 'openai' ? `OpenAI Key ${idx + 1}` : k.envVarName}</span>
+                      <span style={{ opacity: 0.6, fontSize: '0.68rem', fontFamily: 'var(--font-mono)' }}>
+                        ({k.preview})
+                      </span>
+                      {isSelected && <Check style={{ width: 11, height: 11, marginLeft: 1 }} />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           {/* API Key Input */}
           <div className="api-field-group">
             <div className="api-field-header">
               <label htmlFor="apiKeyInput" className="api-field-label">
-                {config.provider === 'gemini' ? 'Google Gemini API Key' : 'OpenAI / Custom API Key'}
+                {config.provider === 'gemini' 
+                  ? 'Google Gemini API Key' 
+                  : config.provider === 'openai' 
+                    ? 'OpenAI API Key (Đã tự động nạp từ lựa chọn trên)' 
+                    : 'OpenAI / Custom API Key'}
               </label>
               
               {config.provider === 'gemini' && (
@@ -255,7 +463,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
                 id="apiKeyInput"
                 type={showKey ? 'text' : 'password'}
                 value={config.apiKey}
-                onChange={(e) => setConfig(prev => ({ ...prev, apiKey: e.target.value }))}
+                onChange={(e) => handleApiKeyInput(e.target.value)}
                 placeholder={config.provider === 'gemini' ? 'AIzaSy...' : 'sk-...'}
                 className="api-text-input"
                 autoComplete="off"
@@ -302,8 +510,30 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
             </div>
             
             <p className="api-security-note">
-              🔒 Khóa được lưu hoàn toàn trên trình duyệt của bạn (Local Storage) và chỉ gửi trực tiếp đến endpoint API chính thức của {config.provider === 'gemini' ? 'Google' : 'OpenAI'}.
+              🔒 Khóa được lưu an toàn trong trình duyệt hoặc nạp từ file <code>.env</code>. Bạn có thể chọn nhanh bất kỳ khóa nào giữa 2 khóa OpenAI đã tạo.
             </p>
+
+            {/* Smart AI Proxy Reassurance for OpenAI + AQ. key */}
+            {config.provider === 'openai' && (config.apiKey.startsWith('AQ.') || config.apiKey.startsWith('AIza')) && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.5rem',
+                padding: '0.65rem 0.85rem',
+                borderRadius: '8px',
+                background: 'rgba(16, 185, 129, 0.08)',
+                border: '1px solid rgba(16, 185, 129, 0.25)',
+                fontSize: '0.8rem',
+                color: '#a7f3d0',
+                marginTop: '0.6rem',
+                lineHeight: 1.45
+              }}>
+                <Sparkles style={{ width: 15, height: 15, color: '#34d399', flexShrink: 0, marginTop: 2 }} />
+                <div>
+                  <strong>Cầu nối Thông minh (Smart AI Proxy) tự động kích hoạt:</strong> Khóa này mang định dạng Google Gemini trong <code>.env</code>. Hệ thống sẽ tự động định tuyến toàn bộ phản biện Realtime Grill Me và AI Canvas qua mô hình <strong>Gemini Flash Lite</strong> thời gian thực, đảm bảo bạn chọn OpenAI hay Gemini thì AI đều hoạt động 100% mượt mà!
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Model Selection */}
@@ -317,15 +547,18 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
             >
               {config.provider === 'gemini' ? (
                 <>
-                  <option value="gemini-2.5-flash">gemini-2.5-flash (Nhanh nhất & Thông minh nhất - Mặc định)</option>
-                  <option value="gemini-1.5-flash">gemini-1.5-flash (Siêu tốc độ, độ trễ thấp)</option>
-                  <option value="gemini-1.5-pro">gemini-1.5-pro (Suy luận sâu sắc, phân tích kiến trúc phức tạp)</option>
+                  <option value="gemini-flash-lite-latest">gemini-flash-lite-latest (Nhanh nhất & Hạn ngạch cao - Khuyên dùng)</option>
+                  <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (Thế hệ mới 2026)</option>
+                  <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite (Siêu tốc độ)</option>
+                  <option value="gemini-flash-latest">gemini-flash-latest (Chuẩn ổn định)</option>
+                  <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (Dự phòng)</option>
                 </>
               ) : (
                 <>
-                  <option value="gpt-4o-mini">gpt-4o-mini (Cân bằng tốc độ & chi phí)</option>
-                  <option value="gpt-4o">gpt-4o (Mô hình tiêu chuẩn cao cấp)</option>
-                  <option value="deepseek-chat">deepseek-chat (DeepSeek V3)</option>
+                  <option value="gpt-4o-mini">gpt-4o-mini (Cân bằng tốc độ & chi phí - Mặc định)</option>
+                  <option value="gpt-4o">gpt-4o (Mô hình tiêu chuẩn cao cấp OpenAI)</option>
+                  <option value="gpt-4-turbo">gpt-4-turbo (Phiên bản Turbo hiệu suất cao)</option>
+                  <option value="deepseek-chat">deepseek-chat (DeepSeek V3 qua Custom URL)</option>
                 </>
               )}
             </select>

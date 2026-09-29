@@ -161,8 +161,9 @@ export const loginUser = async (
 export const registerUser = async (
   handle: string,
   email: string,
-  password?: string
-): Promise<{ success: boolean; user?: AuthUser; error?: string }> => {
+  password?: string,
+  forceLocal: boolean = false
+): Promise<{ success: boolean; user?: AuthUser; error?: string; isRateLimit?: boolean }> => {
   const cleanHandle = handle.trim().replace(/\s+/g, '_');
   const cleanEmail = email.trim();
 
@@ -173,8 +174,15 @@ export const registerUser = async (
   // Generate unique User ID
   const newUserId = `usr_${cleanHandle.toLowerCase()}_${Math.random().toString(36).substring(2, 6)}`;
 
-  // 1. Try Supabase Auth Sign Up if valid email & password
-  if (cleanEmail.includes('@') && password && password.length >= 6) {
+  // 1. If email is provided and not forcing local, register directly in Supabase Cloud Auth
+  if (cleanEmail && !forceLocal) {
+    if (!cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+      return { success: false, error: 'Email không đúng định dạng. Vui lòng nhập email hợp lệ (ví dụ: designer@gmail.com).' };
+    }
+    if (!password || password.length < 6) {
+      return { success: false, error: 'Mật khẩu bảo vệ tài khoản Supabase yêu cầu tối thiểu 6 ký tự.' };
+    }
+
     try {
       const { data, error } = await supabase.auth.signUp({
         email: cleanEmail,
@@ -184,19 +192,54 @@ export const registerUser = async (
         }
       });
 
-      if (!error && data.user) {
+      if (error) {
+        const isRateLimit = error.message?.toLowerCase().includes('rate limit') || 
+                            (error as any).status === 429;
+        
+        if (isRateLimit) {
+          return { 
+            success: false, 
+            isRateLimit: true,
+            error: 'RATE_LIMIT: Supabase giới hạn 3-4 email xác nhận/giờ trên máy chủ dùng chung. Để khắc phục: Vào Supabase Dashboard > Authentication > Providers > Email và TẮT (Disable) "Confirm email" để tạo tài khoản tức thì.' 
+          };
+        }
+
+        if (error.message?.toLowerCase().includes('already registered')) {
+          return {
+            success: false,
+            error: 'Email này đã được đăng ký trong Supabase. Hãy chuyển sang tab Đăng nhập để truy cập Locker.'
+          };
+        }
+
+        return { success: false, error: `Lỗi Supabase Auth: ${error.message}` };
+      }
+
+      if (data.user) {
         const authUser: AuthUser = {
           id: data.user.id,
           handle: cleanHandle,
           email: cleanEmail,
           created_at: Date.now()
         };
+
+        // Also attempt to mirror profile in public.user_profiles table
+        try {
+          await supabase.from('user_profiles').upsert({
+            id: data.user.id,
+            handle: cleanHandle,
+            email: cleanEmail,
+            created_at: Date.now()
+          });
+        } catch {
+          // Table might not exist yet if schema has not been run
+        }
+
         localStorage.setItem(AUTH_USER_KEY, JSON.stringify(authUser));
         localStorage.setItem(USER_STORAGE_KEY, authUser.id);
         return { success: true, user: authUser };
       }
     } catch (err: any) {
-      console.warn('Supabase auth sign-up warning:', err);
+      return { success: false, error: `Không thể kết nối đến máy chủ Supabase: ${err.message || 'Lỗi mạng'}` };
     }
   }
 
@@ -256,6 +299,9 @@ export const logoutUser = async (): Promise<void> => {
     // Ignore error
   }
   localStorage.removeItem(AUTH_USER_KEY);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('stitch-auth-logout'));
+  }
 };
 
 /**

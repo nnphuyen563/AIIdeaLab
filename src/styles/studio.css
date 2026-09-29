@@ -1043,6 +1043,83 @@
   margin: 0;
 }
 
+.api-env-select-box {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.api-env-select-box:hover {
+  border-color: rgba(56, 189, 248, 0.25);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.api-env-badge-active {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #34D399;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.api-key-chip-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding-top: 0.2rem;
+}
+
+.api-key-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.api-key-chip:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.api-key-chip.active {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: #10B981;
+  color: #34D399;
+  font-weight: 600;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+}
+
+.api-key-chip .chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.api-key-chip.active .chip-dot {
+  background: #10B981;
+  box-shadow: 0 0 6px #10B981;
+}
+
 .api-test-section {
   display: flex;
   align-items: center;
@@ -2092,12 +2169,17 @@
   justify-content: space-between;
   padding: 0 1.25rem;
   z-index: 60;
+  gap: 1rem;
 }
 
 .exact-topbar-left {
   display: flex;
   align-items: center;
   gap: 0.85rem;
+  min-width: 0;
+  max-width: 480px;
+  overflow: hidden;
+  flex: 1;
 }
 
 .exact-menu-btn {
@@ -2111,6 +2193,7 @@
   padding: 4px;
   border-radius: 6px;
   transition: all 0.15s ease;
+  flex-shrink: 0;
 }
 
 .exact-menu-btn:hover {
@@ -2123,12 +2206,18 @@
   font-weight: 500;
   color: #E2E8F0;
   letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 420px;
 }
 
 .exact-topbar-right {
   display: flex;
   align-items: center;
   gap: 0.65rem;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .exact-topbar-pill-btn {
@@ -2145,6 +2234,8 @@
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .exact-topbar-pill-btn:hover {
@@ -2309,18 +2400,51 @@
 }
 
 /* Floating Spec Card (Top Left) */
+.exact-spec-toggle-pill {
+  position: fixed;
+  top: 66px;
+  left: 20px;
+  background: #12151e;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 20px;
+  padding: 0.35rem 0.8rem;
+  color: #F1F5F9;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.65);
+  z-index: 50;
+  transition: all 0.15s ease;
+}
+
+.exact-spec-toggle-pill:hover {
+  background: #182032;
+  border-color: #10B981;
+  color: #FFFFFF;
+  transform: translateY(-1px);
+}
+
 .exact-floating-spec {
   position: fixed;
   top: 66px;
   left: 20px;
   width: 290px;
   background: #12151e;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
   padding: 14px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.65);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.75);
   z-index: 50;
   color: #CBD5E1;
+  animation: specFadeIn 0.2s ease-out;
+}
+
+@keyframes specFadeIn {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 .exact-spec-top-row {
@@ -2763,6 +2887,116 @@
 .exact-context-close-btn:hover {
   background: rgba(239, 68, 68, 0.15);
   color: #F87171;
+}
+
+/* Redesign & Visual Variants Settings Strip (Right below context capsule) */
+.exact-redesign-settings-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(15, 20, 32, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 0.35rem 0.65rem;
+  margin-bottom: 0.45rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  animation: fadeIn 0.18s ease;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.exact-redesign-settings-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.redesign-strip-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.71875rem;
+  font-weight: 700;
+  color: #38BDF8;
+  white-space: nowrap;
+  padding-right: 0.4rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.redesign-chip-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #E2E8F0;
+  border-radius: 6px;
+  padding: 0.22rem 0.55rem;
+  font-size: 0.71875rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.redesign-chip-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #FFFFFF;
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.redesign-chip-btn.special-btn {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #34D399;
+  font-weight: 600;
+}
+
+.redesign-chip-btn.special-btn:hover {
+  background: rgba(16, 185, 129, 0.3);
+  border-color: #10B981;
+  color: #FFFFFF;
+}
+
+.redesign-palette-pill {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.redesign-variant-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+  padding-left: 0.5rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.redesign-variant-pill {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94A3B8;
+  border-radius: 4px;
+  padding: 0.15rem 0.4rem;
+  font-size: 0.6875rem;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.redesign-variant-pill:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.redesign-variant-pill.active {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: #38BDF8;
+  color: #38BDF8;
+  font-weight: 700;
 }
 
 /* Screen Card Header Action for Copilot Chat */

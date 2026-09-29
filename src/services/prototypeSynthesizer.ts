@@ -22,7 +22,7 @@ export function synthesizePrototypeHtml(
   // ==========================================================================
   // 0. AUTONOMOUS RECEIPT & CLAIM ADJUDICATION DOMAIN
   // ==========================================================================
-  if (lower.includes('claim') || lower.includes('receipt') || lower.includes('hóa đơn') || lower.includes('expense') || lower.includes('approval') || lower.includes('duyệt')) {
+  if (lower.includes('claim') || lower.includes('receipt') || lower.includes('hóa đơn') || lower.includes('expense') || lower.includes('approval') || lower.includes('duyệt') || lower.includes('leave') || lower.includes('nghỉ phép') || lower.includes('ticket') || lower.includes('phiếu') || (lower.includes('request') && !lower.includes('pacemate') && !lower.includes('runner'))) {
     
     // SCREEN 1: OCR Extraction Matrix & Bounding Box Inspector
     if (screenIndex === 1) {
@@ -557,31 +557,36 @@ export function synthesizePrototypeHtml(
 </html>`;
     }
 
-    // SCREEN 0: Core Claims Adjudication Dashboard & Interactive OCR Scanner
+    // SCREEN 0: Executive Multi-Request Approval Cockpit & Autonomous Adjudication Hub
     return `<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AutoClaim - Hệ thống Tự động Duyệt Yêu cầu Bồi hoàn</title>
+  <title>ApexFlow - Autonomous Request & Approval Cockpit</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --bg: ${bgColor};
       --accent: ${primaryColor};
+      --accent-glow: rgba(${primaryColor === '#eab308' ? '234, 179, 8' : primaryColor === '#ef4444' ? '239, 68, 68' : primaryColor === '#38bdf8' ? '56, 189, 248' : '16, 185, 129'}, 0.2);
       --surface: ${surfaceColor};
+      --surface-elevated: #111726;
       --border: rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(255, 255, 255, 0.2);
       --text: #F8FAFC;
       --text-muted: #94A3B8;
+      --text-sub: #64748B;
     }
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Geist", "Plus Jakarta Sans", sans-serif;
       padding: ${platform === 'app' ? '1rem' : '1.75rem'};
       min-height: 100vh;
       max-width: ${platform === 'app' ? '440px' : '1100px'};
       margin: 0 auto;
+      letter-spacing: -0.01em;
     }
     header {
       display: flex;
@@ -598,47 +603,306 @@ export function synthesizePrototypeHtml(
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      letter-spacing: -0.02em;
+      letter-spacing: -0.03em;
     }
     .brand-accent { color: var(--accent); }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34D399;
+      padding: 0.35rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .status-pulse {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10B981;
+      box-shadow: 0 0 8px #10B981;
+    }
+
+    /* Double-Bezel KPI Cards */
     .kpi-grid {
       display: grid;
       grid-template-columns: ${platform === 'app' ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)'};
       gap: 0.85rem;
       margin-bottom: 1.5rem;
     }
+    .kpi-bezel {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 4px;
+    }
     .kpi-card {
       background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1rem;
-    }
-    .kpi-label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.04em; }
-    .kpi-val { font-size: 1.35rem; font-weight: 800; color: #fff; margin: 0.35rem 0 0.15rem 0; }
-    .kpi-sub { font-size: 0.72rem; color: var(--accent); font-weight: 600; }
-    
-    .scanner-box {
-      background: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.08), transparent 70%), var(--surface);
-      border: 1.5px dashed rgba(255, 255, 255, 0.15);
       border-radius: 14px;
-      padding: 1.5rem;
-      text-align: center;
-      margin-bottom: 1.5rem;
-      cursor: pointer;
-      transition: all 0.2s ease;
+      padding: 1rem 1.1rem;
+      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.07);
     }
-    .scanner-box:hover { border-color: var(--accent); }
-    .scan-progress {
-      width: 100%;
-      height: 6px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 3px;
-      overflow: hidden;
-      margin-top: 0.75rem;
-      display: none;
-    }
-    .scan-bar { height: 100%; width: 0%; background: var(--accent); transition: width 0.3s ease; }
+    .kpi-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; }
+    .kpi-val { font-size: 1.45rem; font-weight: 800; color: #fff; margin: 0.35rem 0 0.15rem 0; letter-spacing: -0.03em; }
+    .kpi-sub { font-size: 0.72rem; color: var(--accent); font-weight: 600; }
 
+    /* Interactive Hub Box */
+    .interactive-hub {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 5px;
+      margin-bottom: 1.5rem;
+    }
+    .interactive-hub-inner {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 1.35rem;
+      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.08);
+    }
+    .hub-header {
+      display: flex;
+      flex-direction: ${platform === 'app' ? 'column' : 'row'};
+      justify-content: space-between;
+      align-items: ${platform === 'app' ? 'flex-start' : 'center'};
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .hub-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Segmented Pill Selector (No ugly <select>) */
+    .segmented-tabs {
+      display: flex;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border);
+      padding: 3px;
+      border-radius: 10px;
+      gap: 3px;
+      width: ${platform === 'app' ? '100%' : 'auto'};
+      overflow-x: auto;
+    }
+    .seg-pill {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 0.45rem 0.85rem;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .seg-pill.active {
+      background: var(--surface-elevated);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Mode Panels */
+    .mode-panel { display: none; }
+    .mode-panel.active { display: block; animation: fadeIn 0.25s ease; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Leave Request Form Grid */
+    .form-grid {
+      display: grid;
+      grid-template-columns: ${platform === 'app' ? '1fr' : 'repeat(3, 1fr)'};
+      gap: 0.85rem;
+      margin-bottom: 1rem;
+    }
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .input-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .styled-input {
+      background: #080C14;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.65rem 0.85rem;
+      color: #fff;
+      font-size: 0.825rem;
+      outline: none;
+      transition: border-color 0.2s ease;
+      font-family: inherit;
+    }
+    .styled-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-glow);
+    }
+    .leave-type-chips {
+      display: flex;
+      gap: 0.45rem;
+      margin-bottom: 1rem;
+      overflow-x: auto;
+    }
+    .leave-chip {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 0.4rem 0.75rem;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .leave-chip.selected {
+      background: rgba(16, 185, 129, 0.14);
+      border-color: var(--accent);
+      color: #34D399;
+      font-weight: 600;
+    }
+
+    /* Policy Gate Banner */
+    .policy-gate-card {
+      background: rgba(16, 185, 129, 0.06);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .policy-gate-text {
+      font-size: 0.76rem;
+      color: #34D399;
+      line-height: 1.4;
+    }
+    .policy-gate-badge {
+      background: var(--accent);
+      color: #000;
+      font-size: 0.68rem;
+      font-weight: 800;
+      padding: 0.2rem 0.55rem;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    /* Custom Dropzone with Scanning Beam */
+    .scanner-dropzone {
+      background: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.08), transparent 75%), #080C14;
+      border: 1.5px dashed rgba(255, 255, 255, 0.18);
+      border-radius: 12px;
+      padding: 1.5rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.2s ease;
+      margin-bottom: 0.75rem;
+    }
+    .scanner-dropzone:hover {
+      border-color: var(--accent);
+      background: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.14), transparent 75%), #080C14;
+    }
+    .scanner-dropzone.scanning::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--accent), #fff, var(--accent), transparent);
+      box-shadow: 0 0 12px var(--accent);
+      animation: scanBeam 1.2s infinite ease-in-out;
+    }
+    @keyframes scanBeam {
+      0% { top: 0%; opacity: 0; }
+      20% { opacity: 1; }
+      80% { opacity: 1; }
+      100% { top: 100%; opacity: 0; }
+    }
+    .quick-sample-row {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 0.85rem;
+    }
+    .sample-pill-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      color: #CBD5E1;
+      padding: 0.35rem 0.65rem;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .sample-pill-btn:hover {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: var(--accent);
+      color: #34D399;
+    }
+
+    /* Primary Action Button */
+    .btn-submit {
+      background: var(--accent);
+      color: #040810;
+      border: none;
+      border-radius: 8px;
+      padding: 0.75rem 1.25rem;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      width: 100%;
+      transition: all 0.2s ease;
+      letter-spacing: -0.01em;
+    }
+    .btn-submit:hover {
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px var(--accent-glow);
+    }
+
+    /* Queue Table Area */
+    .queue-section {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 5px;
+    }
+    .queue-inner {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 1.25rem;
+      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.08);
+    }
     .filter-bar {
       display: flex;
       flex-direction: ${platform === 'app' ? 'column' : 'row'};
@@ -646,73 +910,88 @@ export function synthesizePrototypeHtml(
       gap: 0.75rem;
       margin-bottom: 1rem;
     }
-    .search-input {
-      background: var(--surface);
+    .search-box {
+      background: #080C14;
       border: 1px solid var(--border);
-      padding: 0.65rem 1rem;
       border-radius: 8px;
+      padding: 0.6rem 0.85rem;
       color: #fff;
-      font-size: 0.85rem;
-      outline: none;
-      flex: 1;
-    }
-    .tabs { display: flex; gap: 0.4rem; overflow-x: auto; }
-    .tab {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid var(--border);
-      padding: 0.5rem 0.85rem;
-      border-radius: 8px;
-      color: var(--text-muted);
       font-size: 0.8rem;
+      flex: 1;
+      outline: none;
+      font-family: inherit;
+    }
+    .search-box:focus { border-color: var(--accent); }
+    .cat-tabs { display: flex; gap: 0.35rem; overflow-x: auto; }
+    .cat-tab {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 0.45rem 0.75rem;
+      border-radius: 8px;
+      font-size: 0.75rem;
       cursor: pointer;
       white-space: nowrap;
+      font-weight: 500;
     }
-    .tab.active { background: var(--accent); color: #000; font-weight: 700; border-color: var(--accent); }
+    .cat-tab.active {
+      background: var(--accent);
+      color: #040810;
+      border-color: var(--accent);
+      font-weight: 700;
+    }
 
-    .table-wrap {
-      background: var(--surface);
+    .table-container {
+      overflow-x: auto;
       border: 1px solid var(--border);
       border-radius: 12px;
-      overflow-x: auto;
+      background: #080C14;
     }
-    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.825rem; }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.8rem; }
     th, td { padding: 0.85rem 1rem; border-bottom: 1px solid var(--border); }
-    th { color: var(--text-muted); font-weight: 600; background: rgba(0,0,0,0.25); font-size: 0.75rem; }
+    th { color: var(--text-sub); font-weight: 700; background: rgba(0,0,0,0.3); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; }
     tr:hover { background: rgba(255,255,255,0.02); cursor: pointer; }
-    .badge-ok {
+    .badge-auto {
       background: rgba(16, 185, 129, 0.15);
-      color: #10B981;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: #34D399;
       padding: 0.2rem 0.55rem;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      font-weight: 600;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
     }
     .badge-warn {
       background: rgba(245, 158, 11, 0.15);
-      color: #F59E0B;
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      color: #FBBF24;
       padding: 0.2rem 0.55rem;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      font-weight: 600;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 700;
     }
-    
+
+    /* Slide-in Detail Drawer */
     .drawer-overlay {
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.7);
-      backdrop-filter: blur(4px);
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(6px);
       display: none;
       align-items: center;
       justify-content: center;
       z-index: 1000;
       padding: 1rem;
     }
-    .drawer {
-      background: #111522;
-      border: 1px solid var(--border);
-      border-radius: 14px;
+    .drawer-card {
+      background: #0D121F;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 18px;
       width: 100%;
-      max-width: 500px;
+      max-width: 520px;
       padding: 1.5rem;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85);
     }
   </style>
 </head>
@@ -720,158 +999,380 @@ export function synthesizePrototypeHtml(
   <header>
     <div>
       <div class="brand">
-        <span class="brand-accent">⚡ AUTOCLAIM</span>
-        <span style="font-size: 0.9rem; font-weight: 600; color: #fff;">Phê duyệt Chi phí Tự động</span>
+        <span class="brand-accent">⚡ APEXFLOW</span>
+        <span style="font-size: 0.95rem; font-weight: 700; color: #fff;">Approval Hub &amp; Request Engine</span>
       </div>
-      <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">Hệ thống nhận diện hóa đơn OCR & Kiểm toán chính sách tài chính thời gian thực</div>
+      <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem">
+        Hệ thống Tự động hóa Phê duyệt Yêu cầu: Nghỉ phép, Hóa đơn OCR &amp; Đối soát Chính sách Doanh nghiệp
+      </div>
     </div>
-    <span style="font-size: 0.75rem; color: var(--accent); background: rgba(16,185,129,0.1); padding: 0.3rem 0.7rem; border-radius: 9999px; font-weight: 600">Động cơ OCR: Trực tiếp</span>
+    <div class="status-badge">
+      <span class="status-pulse"></span>
+      <span>Policy Engine Live • 14ms</span>
+    </div>
   </header>
 
+  <!-- 4 Doppelrand Double-Bezel KPI Cards -->
   <div class="kpi-grid">
-    <div class="kpi-card">
-      <div class="kpi-label">Tỷ lệ tự động duyệt</div>
-      <div class="kpi-val" style="color:var(--accent)">94.6%</div>
-      <div class="kpi-sub">↑ 2.4% so với tuần trước</div>
+    <div class="kpi-bezel">
+      <div class="kpi-card">
+        <div class="kpi-label">Tỷ lệ Tự động Duyệt</div>
+        <div class="kpi-val" style="color:var(--accent)">96.8%</div>
+        <div class="kpi-sub">142/148 đơn Zero-Touch</div>
+      </div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Đã duyệt hôm nay</div>
-      <div class="kpi-val">142 đơn</div>
-      <div class="kpi-sub">Tổng: 48.250.000 ₫</div>
+    <div class="kpi-bezel">
+      <div class="kpi-card">
+        <div class="kpi-label">Độ trễ Ra quyết định</div>
+        <div class="kpi-val">14ms</div>
+        <div class="kpi-sub">Đối soát song song</div>
+      </div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Cần quản lý xét duyệt</div>
-      <div class="kpi-val" style="color:#F59E0B">6 đơn</div>
-      <div class="kpi-sub">Chính sách đặc thù</div>
+    <div class="kpi-bezel">
+      <div class="kpi-card">
+        <div class="kpi-label">Đơn Nghỉ phép Đã cấp</div>
+        <div class="kpi-val">34 lượt</div>
+        <div class="kpi-sub">0 vi phạm trực ban</div>
+      </div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Tốc độ xử lý bình quân</div>
-      <div class="kpi-val">740ms</div>
-      <div class="kpi-sub">Zero-Touch Pipeline</div>
-    </div>
-  </div>
-
-  <div class="scanner-box" onclick="simulateOcrScan()">
-    <div style="font-size: 1.75rem; margin-bottom: 0.5rem">📄</div>
-    <div style="font-weight: 700; font-size: 0.95rem; color: #fff;">Kéo thả hóa đơn vào đây hoặc click để quét mẫu tức thì</div>
-    <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.35rem">Hỗ trợ PDF hóa đơn điện tử GTGT, ảnh chụp camera (JPG, PNG)</div>
-    <div class="scan-progress" id="scanProgress"><div class="scan-bar" id="scanBar"></div></div>
-    <div id="scanStatus" style="font-size: 0.75rem; color: var(--accent); margin-top: 0.5rem; display: none;">Đang bóc tách OCR...</div>
-  </div>
-
-  <div class="filter-bar">
-    <input type="text" class="search-input" id="search" placeholder="Tìm theo mã đơn, đơn vị bán hoặc số tiền..." oninput="filterTable(this.value)">
-    <div class="tabs">
-      <button class="tab active" onclick="filterCategory('all', this)">Tất cả (5)</button>
-      <button class="tab" onclick="filterCategory('approved', this)">Tự động duyệt (3)</button>
-      <button class="tab" onclick="filterCategory('review', this)">Cần xem xét (2)</button>
+    <div class="kpi-bezel">
+      <div class="kpi-card">
+        <div class="kpi-label">Tổng Bồi hoàn OCR</div>
+        <div class="kpi-val">48.25tr ₫</div>
+        <div class="kpi-sub">Khớp mã số thuế 100%</div>
+      </div>
     </div>
   </div>
 
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Mã đơn</th>
-          <th>Đơn vị phát hành</th>
-          <th>Danh mục</th>
-          <th>Số tiền</th>
-          <th>Độ tin cậy OCR</th>
-          <th>Trạng thái</th>
-        </tr>
-      </thead>
-      <tbody id="claimsBody">
-        <tr data-cat="approved" onclick="openDrawer('CLM-9081', 'Starbucks Coffee Vietnam', '199.800 ₫', 'Ăn uống & Tiếp khách', 'Tự động phê duyệt', '99.8%')">
-          <td style="font-family:ui-monospace; font-weight:700">#CLM-9081</td>
-          <td style="font-weight:600">Starbucks Coffee Vietnam</td>
-          <td>Ăn uống & Tiếp khách</td>
-          <td style="font-weight:700; color:#fff">199.800 ₫</td>
-          <td><span style="color:var(--accent); font-weight:700">99.8%</span></td>
-          <td><span class="badge-ok">✓ Tự động duyệt</span></td>
-        </tr>
-        <tr data-cat="approved" onclick="openDrawer('CLM-9082', 'Grab Taxi Vietnam Co.', '74.000 ₫', 'Di chuyển nội đô', 'Tự động phê duyệt', '99.2%')">
-          <td style="font-family:ui-monospace; font-weight:700">#CLM-9082</td>
-          <td style="font-weight:600">Grab Taxi Vietnam Co.</td>
-          <td>Di chuyển công tác</td>
-          <td style="font-weight:700; color:#fff">74.000 ₫</td>
-          <td><span style="color:var(--accent); font-weight:700">99.2%</span></td>
-          <td><span class="badge-ok">✓ Tự động duyệt</span></td>
-        </tr>
-        <tr data-cat="review" onclick="openDrawer('CLM-9083', 'Khách sạn Melia Hà Nội', '4.850.000 ₫', 'Khách sạn & Lưu trú', 'Cần quản lý duyệt (Vượt hạn mức 3.000.000 ₫)', '71.4%')">
-          <td style="font-family:ui-monospace; font-weight:700">#CLM-9083</td>
-          <td style="font-weight:600">Khách sạn Melia Hà Nội</td>
-          <td>Lưu trú công tác</td>
-          <td style="font-weight:700; color:#fff">4.850.000 ₫</td>
-          <td><span style="color:#F59E0B; font-weight:700">71.4%</span></td>
-          <td><span class="badge-warn">! Vượt hạn mức</span></td>
-        </tr>
-        <tr data-cat="approved" onclick="openDrawer('CLM-9084', 'Amazon Web Services EMEA', '12.450.000 ₫', 'Hạ tầng Cloud', 'Tự động phê duyệt theo hợp đồng', '98.7%')">
-          <td style="font-family:ui-monospace; font-weight:700">#CLM-9084</td>
-          <td style="font-weight:600">Amazon Web Services EMEA</td>
-          <td>Hạ tầng & Phần mềm</td>
-          <td style="font-weight:700; color:#fff">12.450.000 ₫</td>
-          <td><span style="color:var(--accent); font-weight:700">98.7%</span></td>
-          <td><span class="badge-ok">✓ Tự động duyệt</span></td>
-        </tr>
-        <tr data-cat="review" onclick="openDrawer('CLM-9085', 'Apple Store Vincom', '32.990.000 ₫', 'Thiết bị & Phần cứng', 'Chờ Giám đốc Khối ký duyệt', '88.0%')">
-          <td style="font-family:ui-monospace; font-weight:700">#CLM-9085</td>
-          <td style="font-weight:600">Apple Store Vincom</td>
-          <td>Thiết bị IT</td>
-          <td style="font-weight:700; color:#fff">32.990.000 ₫</td>
-          <td><span style="color:#F59E0B; font-weight:700">88.0%</span></td>
-          <td><span class="badge-warn">⏳ Chờ GĐ ký</span></td>
-        </tr>
-      </tbody>
-    </table>
+  <!-- Interactive Request Creation Studio (No unstyled <select> or file inputs!) -->
+  <div class="interactive-hub">
+    <div class="interactive-hub-inner">
+      <div class="hub-header">
+        <div class="hub-title">
+          <span>✨ Tạo Yêu Cầu Mới &amp; Đối Soát Tức Thì</span>
+        </div>
+
+        <!-- Segmented Pill Selector -->
+        <div class="segmented-tabs">
+          <button type="button" class="seg-pill active" onclick="switchRequestMode('leave', this)">
+            <span>🏖️ Nghỉ phép</span>
+          </button>
+          <button type="button" class="seg-pill" onclick="switchRequestMode('claim', this)">
+            <span>🧾 Hóa đơn bồi hoàn</span>
+          </button>
+          <button type="button" class="seg-pill" onclick="switchRequestMode('advance', this)">
+            <span>💳 Tạm ứng</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- PANEL 1: LEAVE TICKET REQUEST -->
+      <div id="panelLeave" class="mode-panel active">
+        <div class="leave-type-chips">
+          <button type="button" class="leave-chip selected" onclick="selectLeaveChip(this, 'Phép năm thường niên')">🏖️ Phép thường niên (12 ngày còn)</button>
+          <button type="button" class="leave-chip" onclick="selectLeaveChip(this, 'Nghỉ ốm / Khám bệnh')">🩺 Nghỉ ốm / Bệnh (Có giấy BHXH)</button>
+          <button type="button" class="leave-chip" onclick="selectLeaveChip(this, 'Làm việc từ xa')">💻 Làm việc từ xa (WFH)</button>
+        </div>
+
+        <div class="form-grid">
+          <div class="input-group">
+            <label class="input-label">Từ ngày</label>
+            <input type="date" id="leaveStartDate" class="styled-input" value="2026-10-01" onchange="calculateLeaveDays()">
+          </div>
+          <div class="input-group">
+            <label class="input-label">Đến hết ngày</label>
+            <input type="date" id="leaveEndDate" class="styled-input" value="2026-10-02" onchange="calculateLeaveDays()">
+          </div>
+          <div class="input-group">
+            <label class="input-label">Thời lượng tính toán</label>
+            <div id="leaveDurationDisplay" class="styled-input" style="background:#05070D; color:#34D399; font-weight:700">
+              2 ngày làm việc (16 giờ)
+            </div>
+          </div>
+        </div>
+
+        <div class="form-grid" style="grid-template-columns: ${platform === 'app' ? '1fr' : '2fr 1fr'}">
+          <div class="input-group">
+            <label class="input-label">Lý do &amp; Nội dung bàn giao</label>
+            <input type="text" id="leaveReason" class="styled-input" placeholder="VD: Giải quyết việc cá nhân gia đình, bàn giao ticket cho Trần Mai...">
+          </div>
+          <div class="input-group">
+            <label class="input-label">Nhân sự trực thay (Backup)</label>
+            <input type="text" id="leaveBackup" class="styled-input" value="Trần Thị Mai (Tech Lead)">
+          </div>
+        </div>
+
+        <div class="policy-gate-card">
+          <div class="policy-gate-text">
+            <strong>✓ Đạt chuẩn Quy chế Tự động duyệt:</strong> Thời gian nghỉ &le; 3 ngày làm việc, đã chỉ định Backup và không trùng lịch On-call trọng điểm.
+          </div>
+          <span class="policy-gate-badge">TỰ ĐỘNG DUYỆT 14ms</span>
+        </div>
+
+        <button type="button" class="btn-submit" onclick="submitLeaveRequest()">
+          <span>Nộp Đơn &amp; Kích Hoạt Tự Động Phê Duyệt ➔</span>
+        </button>
+      </div>
+
+      <!-- PANEL 2: EXPENSE CLAIM & OCR SCANNER -->
+      <div id="panelClaim" class="mode-panel">
+        <div id="scannerDropzone" class="scanner-dropzone" onclick="triggerOcrScan('Starbucks Coffee Vietnam', '199.800 ₫', 'Ăn uống & Tiếp khách', '99.8%')">
+          <div style="font-size: 1.8rem; margin-bottom: 0.35rem">📄</div>
+          <div style="font-weight: 700; font-size: 0.95rem; color: #fff;">
+            Kéo thả ảnh hóa đơn GTGT hoặc click để quét OCR mẫu
+          </div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem">
+            Động cơ AI tự động bóc tách Nhà cung cấp, Mã số thuế, Thuế suất VAT và đối soát hạn mức chi tiêu
+          </div>
+
+          <div class="quick-sample-row" onclick="event.stopPropagation()">
+            <span style="font-size: 0.7rem; color: var(--text-sub)">Chọn mẫu nhanh:</span>
+            <button type="button" class="sample-pill-btn" onclick="triggerOcrScan('Starbucks Coffee VN', '199.800 ₫', 'Ăn uống & Tiếp khách', '99.8%')">
+              ☕ Starbucks (199.8k)
+            </button>
+            <button type="button" class="sample-pill-btn" onclick="triggerOcrScan('Grab Taxi Vietnam', '74.000 ₫', 'Di chuyển công tác', '99.2%')">
+              🚕 Grab Taxi (74k)
+            </button>
+            <button type="button" class="sample-pill-btn" onclick="triggerOcrScan('Khách sạn Melia HN', '4.850.000 ₫', 'Lưu trú công tác', '71.4%')">
+              🏨 Melia Hotel (4.85tr)
+            </button>
+          </div>
+        </div>
+
+        <div id="scanStatusMsg" style="display:none; padding: 0.65rem; border-radius: 8px; background: rgba(16,185,129,0.12); color: #34D399; font-size: 0.78rem; text-align: center; font-weight: 600;">
+          Đang quét tia Laser OCR...
+        </div>
+      </div>
+
+      <!-- PANEL 3: CASH ADVANCE -->
+      <div id="panelAdvance" class="mode-panel">
+        <div class="form-grid" style="grid-template-columns: ${platform === 'app' ? '1fr' : '1fr 1fr 1fr'}">
+          <div class="input-group">
+            <label class="input-label">Mục đích tạm ứng</label>
+            <input type="text" id="advPurpose" class="styled-input" value="Công tác triển khai dự án chi nhánh Đà Nẵng">
+          </div>
+          <div class="input-group">
+            <label class="input-label">Số tiền dự trù (VND)</label>
+            <input type="text" id="advAmount" class="styled-input" value="12,000,000">
+          </div>
+          <div class="input-group">
+            <label class="input-label">Ngày hoàn ứng dự kiến</label>
+            <input type="date" id="advReturnDate" class="styled-input" value="2026-10-15">
+          </div>
+        </div>
+        <button type="button" class="btn-submit" onclick="submitAdvanceRequest()">
+          <span>Gửi Phiếu Tạm Ứng Sang Kế Toán Trưởng ➔</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Approval & Decision Queue -->
+  <div class="queue-section">
+    <div class="queue-inner">
+      <div class="filter-bar">
+        <input type="text" class="search-box" id="searchTable" placeholder="Tìm theo mã đơn, nhân sự, nội dung hoặc trạng thái..." oninput="filterTable(this.value)">
+        <div class="cat-tabs">
+          <button type="button" class="cat-tab active" onclick="filterCategory('all', this)">Tất cả (<span id="countAll">5</span>)</button>
+          <button type="button" class="cat-tab" onclick="filterCategory('leave', this)">Nghỉ phép</button>
+          <button type="button" class="cat-tab" onclick="filterCategory('claim', this)">Hóa đơn &amp; Chi phí</button>
+          <button type="button" class="cat-tab" onclick="filterCategory('review', this)">Cần xét duyệt</button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Mã Yêu Cầu</th>
+              <th>Loại &amp; Người nộp</th>
+              <th>Nội dung chi tiết</th>
+              <th>Số tiền / Số ngày</th>
+              <th>Độ tin cậy</th>
+              <th>Quyết định Hệ thống</th>
+            </tr>
+          </thead>
+          <tbody id="queueBody">
+            <tr data-cat="leave" onclick="openDrawer('LR-1049', 'Nghỉ phép thường niên', 'Nguyễn Văn An (Kỹ sư phần mềm)', 'Nghỉ việc cá nhân gia đình, bàn giao ticket cho Trần Mai', '2 ngày làm việc', '100% Khớp quy chế', 'Tự động phê duyệt (14ms)')">
+              <td style="font-family:ui-monospace; font-weight:700; color:var(--accent)">#LR-1049</td>
+              <td style="font-weight:600">Nguyễn Văn An</td>
+              <td>Phép thường niên (Có backup)</td>
+              <td style="font-weight:700; color:#fff">2 ngày</td>
+              <td><span style="color:var(--accent); font-weight:700">100%</span></td>
+              <td><span class="badge-auto">✓ Tự động duyệt</span></td>
+            </tr>
+            <tr data-cat="claim" onclick="openDrawer('CLM-9081', 'Hóa đơn bồi hoàn', 'Starbucks Coffee Vietnam', 'Tiếp khách & ăn uống dự án Sprint Retro', '199.800 ₫', '99.8% OCR', 'Tự động phê duyệt (Hạn mức < 500k)')">
+              <td style="font-family:ui-monospace; font-weight:700; color:var(--accent)">#CLM-9081</td>
+              <td style="font-weight:600">Starbucks Coffee VN</td>
+              <td>Ăn uống &amp; Tiếp khách</td>
+              <td style="font-weight:700; color:#fff">199.800 ₫</td>
+              <td><span style="color:var(--accent); font-weight:700">99.8%</span></td>
+              <td><span class="badge-auto">✓ Tự động duyệt</span></td>
+            </tr>
+            <tr data-cat="claim" onclick="openDrawer('CLM-9082', 'Hóa đơn bồi hoàn', 'Grab Taxi Vietnam Co.', 'Di chuyển gặp khách hàng đối tác Quận 1', '74.000 ₫', '99.2% OCR', 'Tự động phê duyệt (Trùng lịch công tác)')">
+              <td style="font-family:ui-monospace; font-weight:700; color:var(--accent)">#CLM-9082</td>
+              <td style="font-weight:600">Grab Taxi Vietnam</td>
+              <td>Di chuyển công tác</td>
+              <td style="font-weight:700; color:#fff">74.000 ₫</td>
+              <td><span style="color:var(--accent); font-weight:700">99.2%</span></td>
+              <td><span class="badge-auto">✓ Tự động duyệt</span></td>
+            </tr>
+            <tr data-cat="leave" onclick="openDrawer('LR-1048', 'Làm việc từ xa', 'Lê Minh Đức (Product Designer)', 'WFH tập trung hoàn thiện bộ giao diện Design System', '1 ngày WFH', '100% Hợp lệ', 'Tự động phê duyệt (12ms)')">
+              <td style="font-family:ui-monospace; font-weight:700; color:var(--accent)">#LR-1048</td>
+              <td style="font-weight:600">Lê Minh Đức</td>
+              <td>Làm việc từ xa (WFH)</td>
+              <td style="font-weight:700; color:#fff">1 ngày</td>
+              <td><span style="color:var(--accent); font-weight:700">100%</span></td>
+              <td><span class="badge-auto">✓ Tự động duyệt</span></td>
+            </tr>
+            <tr data-cat="review" onclick="openDrawer('CLM-9083', 'Hóa đơn bồi hoàn', 'Khách sạn Melia Hà Nội', 'Lưu trú công tác hội thảo 3 đêm (Vượt trần định mức)', '4.850.000 ₫', '71.4% Cần ký duyệt', 'Chờ Giám đốc Khối phê duyệt')">
+              <td style="font-family:ui-monospace; font-weight:700; color:#F59E0B">#CLM-9083</td>
+              <td style="font-weight:600">Khách sạn Melia HN</td>
+              <td>Lưu trú công tác</td>
+              <td style="font-weight:700; color:#fff">4.850.000 ₫</td>
+              <td><span style="color:#F59E0B; font-weight:700">71.4%</span></td>
+              <td><span class="badge-warn">! Vượt hạn mức</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <!-- Detail Modal Drawer -->
   <div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer(event)">
-    <div class="drawer" onclick="event.stopPropagation()">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; border-bottom:1px solid var(--border); padding-bottom:0.75rem">
-        <div style="font-weight:800; font-size:1.1rem; color:#fff" id="drawerTitle">Chi tiết Yêu cầu</div>
+    <div class="drawer-card" onclick="event.stopPropagation()">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem; border-bottom:1px solid var(--border); padding-bottom:0.75rem">
+        <div style="font-weight:800; font-size:1.15rem; color:#fff" id="drawerTitle">Chi tiết Yêu cầu</div>
         <button style="background:none; border:none; color:var(--text-muted); font-size:1.25rem; cursor:pointer" onclick="document.getElementById('drawerOverlay').style.display='none'">✕</button>
       </div>
-      <div style="font-size:0.85rem; line-height:1.7; margin-bottom:1.25rem">
-        <div style="display:flex; justify-content:space-between"><span style="color:var(--text-muted)">Đơn vị phát hành:</span> <strong id="dMerchant" style="color:#fff"></strong></div>
-        <div style="display:flex; justify-content:space-between"><span style="color:var(--text-muted)">Số tiền bồi hoàn:</span> <strong id="dAmount" style="color:var(--accent); font-size:1rem"></strong></div>
-        <div style="display:flex; justify-content:space-between"><span style="color:var(--text-muted)">Danh mục chi phí:</span> <span id="dCategory"></span></div>
-        <div style="display:flex; justify-content:space-between"><span style="color:var(--text-muted)">Độ tin cậy OCR:</span> <span id="dConfidence" style="font-weight:700"></span></div>
-        <div style="display:flex; justify-content:space-between; margin-top:0.4rem"><span style="color:var(--text-muted)">Quyết định hệ thống:</span> <span id="dStatus" style="font-weight:700"></span></div>
+
+      <div style="font-size:0.85rem; line-height:1.8; margin-bottom:1.25rem">
+        <div style="display:flex; justify-content:space-between"><span style="color:var(--text-muted)">Phân loại:</span> <strong id="dType" style="color:#fff"></strong></div>
+        <div style="display:flex; justify-content:space-between"><span style="color:var(--text-muted)">Đối tượng / Đơn vị:</span> <strong id="dSubject" style="color:#fff"></strong></div>
+        <div style="display:flex; justify-content:space-between"><span style="color:var(--text-muted)">Chi tiết nội dung:</span> <span id="dDetails"></span></div>
+        <div style="display:flex; justify-content:space-between"><span style="color:var(--text-muted)">Định mức / Giá trị:</span> <strong id="dVal" style="color:var(--accent); font-size:1.05rem"></strong></div>
+        <div style="display:flex; justify-content:space-between"><span style="color:var(--text-muted)">Độ tin cậy &amp; Đối soát:</span> <span id="dConf" style="font-weight:700"></span></div>
+        <div style="display:flex; justify-content:space-between; margin-top:0.4rem"><span style="color:var(--text-muted)">Quyết định AI:</span> <span id="dDecision" style="font-weight:700; color:#34D399"></span></div>
       </div>
-      <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:8px; padding:0.75rem; font-size:0.75rem; margin-bottom:1rem">
-        <div style="font-weight:700; color:#fff; margin-bottom:0.25rem">Kiểm toán tự động:</div>
-        <div style="color:#10B981">✓ Mã số thuế doanh nghiệp hợp lệ trên hệ thống Thuế Nhà nước</div>
-        <div style="color:#10B981">✓ Không phát hiện hóa đơn trùng lặp trong 60 ngày</div>
-        <div style="color:#10B981">✓ Đã xuất toán và đồng bộ phiếu chi sang hệ thống kế toán</div>
+
+      <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:10px; padding:0.85rem; font-size:0.76rem; margin-bottom:1.25rem; line-height:1.6">
+        <div style="font-weight:700; color:#fff; margin-bottom:0.35rem">Kiểm toán tự động &amp; Chứng chỉ số:</div>
+        <div style="color:#10B981">✓ Đối soát quy chế doanh nghiệp: ĐỦ ĐIỀU KIỆN</div>
+        <div style="color:#10B981">✓ Khóa băm kiểm toán SHA-256: 0x8a92..f1bc (Bất biến)</div>
+        <div style="color:#10B981">✓ Đồng bộ tức thời sang sổ cái phân quyền nhân sự &amp; tài chính</div>
       </div>
-      <button style="background:var(--accent); color:#000; border:none; width:100%; padding:0.7rem; border-radius:8px; font-weight:700; cursor:pointer;" onclick="alert('Đã xác nhận thao tác phê duyệt!'); document.getElementById('drawerOverlay').style.display='none'">Đóng và Lưu dữ liệu</button>
+
+      <div style="display:flex; gap:0.6rem">
+        <button style="background:var(--accent); color:#040810; border:none; flex:1; padding:0.75rem; border-radius:8px; font-weight:700; cursor:pointer;" onclick="alert('Đã xác nhận phê duyệt!'); document.getElementById('drawerOverlay').style.display='none'">Xác nhận &amp; Lưu vết</button>
+        <button style="background:rgba(255,255,255,0.08); color:#fff; border:none; padding:0.75rem 1rem; border-radius:8px; font-weight:600; cursor:pointer;" onclick="document.getElementById('drawerOverlay').style.display='none'">Đóng</button>
+      </div>
     </div>
   </div>
 
   <script>
+    function switchRequestMode(mode, btn) {
+      document.querySelectorAll('.seg-pill').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.mode-panel').forEach(m => m.classList.remove('active'));
+      if (mode === 'leave') document.getElementById('panelLeave').classList.add('active');
+      if (mode === 'claim') document.getElementById('panelClaim').classList.add('active');
+      if (mode === 'advance') document.getElementById('panelAdvance').classList.add('active');
+    }
+
+    function selectLeaveChip(chip, type) {
+      document.querySelectorAll('.leave-chip').forEach(c => c.classList.remove('selected'));
+      chip.classList.add('selected');
+    }
+
+    function calculateLeaveDays() {
+      const s = new Date(document.getElementById('leaveStartDate').value);
+      const e = new Date(document.getElementById('leaveEndDate').value);
+      if (e >= s) {
+        const diffTime = Math.abs(e - s);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        document.getElementById('leaveDurationDisplay').textContent = diffDays + ' ngày làm việc (' + (diffDays * 8) + ' giờ)';
+      }
+    }
+
+    function submitLeaveRequest() {
+      const reason = document.getElementById('leaveReason').value || 'Nghỉ giải quyết việc cá nhân';
+      const backup = document.getElementById('leaveBackup').value || 'Đã có người trực';
+      const dur = document.getElementById('leaveDurationDisplay').textContent.split(' ')[0] + ' ngày';
+
+      const newRow = document.createElement('tr');
+      newRow.setAttribute('data-cat', 'leave');
+      newRow.style.background = 'rgba(16, 185, 129, 0.16)';
+      newRow.onclick = function() {
+        openDrawer('LR-1050', 'Nghỉ phép thường niên', 'Bạn (Người dùng hiện tại)', reason + ' (Backup: ' + backup + ')', dur, '100% Hợp lệ', 'Tự động phê duyệt (14ms)');
+      };
+      newRow.innerHTML = '<td style="font-family:ui-monospace; font-weight:700; color:var(--accent)">#LR-1050</td><td style="font-weight:600">Bạn (Vừa nộp đơn)</td><td>' + reason.slice(0, 24) + '...</td><td style="font-weight:700; color:#fff">' + dur + '</td><td><span style="color:var(--accent); font-weight:700">100%</span></td><td><span class="badge-auto">✓ Tự động duyệt</span></td>';
+
+      document.getElementById('queueBody').prepend(newRow);
+      alert('🎉 ĐƠN NGHỈ PHÉP ĐÃ ĐƯỢC TỰ ĐỘNG DUYỆT!\\n\\n• Mã đơn: #LR-1050\\n• Thời lượng: ' + dur + '\\n• Trạng thái: Hợp lệ theo Quy chế Doanh nghiệp (Zero-Touch trong 14ms).');
+    }
+
+    function triggerOcrScan(merchant, amount, category, conf) {
+      const dropzone = document.getElementById('scannerDropzone');
+      const msg = document.getElementById('scanStatusMsg');
+      dropzone.classList.add('scanning');
+      msg.style.display = 'block';
+      msg.textContent = '⚡ Đang chạy chùm quét OCR & đối soát chính sách tài chính...';
+
+      setTimeout(() => {
+        dropzone.classList.remove('scanning');
+        msg.style.display = 'none';
+
+        const newRow = document.createElement('tr');
+        newRow.setAttribute('data-cat', 'claim');
+        newRow.style.background = 'rgba(16, 185, 129, 0.16)';
+        newRow.onclick = function() {
+          openDrawer('CLM-9099', 'Hóa đơn bồi hoàn', merchant, category, amount, conf, 'Tự động phê duyệt');
+        };
+        newRow.innerHTML = '<td style="font-family:ui-monospace; font-weight:700; color:var(--accent)">#CLM-9099</td><td style="font-weight:600">' + merchant + ' (Vừa quét)</td><td>' + category + '</td><td style="font-weight:700; color:#fff">' + amount + '</td><td><span style="color:var(--accent); font-weight:700">' + conf + '</span></td><td><span class="badge-auto">✓ Tự động duyệt</span></td>';
+        document.getElementById('queueBody').prepend(newRow);
+
+        alert('🎉 ĐÃ QUÉT XONG HÓA ĐƠN!\\n\\n• Đơn vị: ' + merchant + '\\n• Số tiền: ' + amount + '\\n• Độ tin cậy OCR: ' + conf + '\\n• Trạng thái: TỰ ĐỘNG PHÊ DUYỆT THÀNH CÔNG.');
+      }, 950);
+    }
+
+    function submitAdvanceRequest() {
+      const pur = document.getElementById('advPurpose').value;
+      const amt = document.getElementById('advAmount').value + ' ₫';
+      const newRow = document.createElement('tr');
+      newRow.setAttribute('data-cat', 'review');
+      newRow.style.background = 'rgba(56, 189, 248, 0.12)';
+      newRow.onclick = function() {
+        openDrawer('ADV-502', 'Phiếu Tạm ứng', 'Bạn (Người dùng)', pur, amt, 'Đang thẩm định ngân sách', 'Chờ Kế toán trưởng ký');
+      };
+      newRow.innerHTML = '<td style="font-family:ui-monospace; font-weight:700; color:#38BDF8">#ADV-502</td><td style="font-weight:600">Bạn (Tạm ứng)</td><td>' + pur.slice(0, 24) + '...</td><td style="font-weight:700; color:#fff">' + amt + '</td><td><span style="color:#38BDF8; font-weight:700">Chờ duyệt</span></td><td><span class="badge-warn">⏳ Chờ KTT ký</span></td>';
+      document.getElementById('queueBody').prepend(newRow);
+      alert('Đã gửi phiếu tạm ứng (' + amt + ') thành công sang phòng Tài chính Kế toán!');
+    }
+
     function filterCategory(cat, el) {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
       el.classList.add('active');
-      document.querySelectorAll('#claimsBody tr').forEach(r => {
+      document.querySelectorAll('#queueBody tr').forEach(r => {
         r.style.display = (cat === 'all' || r.getAttribute('data-cat') === cat) ? '' : 'none';
       });
     }
 
     function filterTable(val) {
       val = val.toLowerCase();
-      document.querySelectorAll('#claimsBody tr').forEach(r => {
+      document.querySelectorAll('#queueBody tr').forEach(r => {
         r.style.display = r.textContent.toLowerCase().includes(val) ? '' : 'none';
       });
     }
 
-    function openDrawer(id, merchant, amt, cat, status, conf) {
+    function openDrawer(id, type, subject, details, val, conf, decision) {
       document.getElementById('drawerTitle').textContent = 'Chi tiết Yêu cầu #' + id;
-      document.getElementById('dMerchant').textContent = merchant;
-      document.getElementById('dAmount').textContent = amt;
-      document.getElementById('dCategory').textContent = cat;
-      document.getElementById('dStatus').textContent = status;
-      document.getElementById('dConfidence').textContent = conf;
+      document.getElementById('dType').textContent = type;
+      document.getElementById('dSubject').textContent = subject;
+      document.getElementById('dDetails').textContent = details;
+      document.getElementById('dVal').textContent = val;
+      document.getElementById('dConf').textContent = conf;
+      document.getElementById('dDecision').textContent = decision;
       document.getElementById('drawerOverlay').style.display = 'flex';
     }
 
@@ -879,30 +1380,6 @@ export function synthesizePrototypeHtml(
       if (e.target.id === 'drawerOverlay') {
         document.getElementById('drawerOverlay').style.display = 'none';
       }
-    }
-
-    function simulateOcrScan() {
-      const p = document.getElementById('scanProgress');
-      const b = document.getElementById('scanBar');
-      const s = document.getElementById('scanStatus');
-      p.style.display = 'block';
-      s.style.display = 'block';
-      b.style.width = '0%';
-      s.textContent = 'Đang nhận diện ký tự quang học (OCR)...';
-      
-      setTimeout(() => { b.style.width = '45%'; s.textContent = 'Đang đối soát MST & Quy chế tài chính...'; }, 400);
-      setTimeout(() => { b.style.width = '100%'; s.textContent = 'Đã hoàn tất! Đơn đủ điều kiện Tự động duyệt.'; }, 900);
-      setTimeout(() => {
-        p.style.display = 'none';
-        s.style.display = 'none';
-        const newRow = document.createElement('tr');
-        newRow.setAttribute('data-cat', 'approved');
-        newRow.style.background = 'rgba(16, 185, 129, 0.15)';
-        newRow.onclick = function() { openDrawer('CLM-9099', 'Highlands Coffee Corp.', '89.000 ₫', 'Ăn uống & Tiếp khách', 'Tự động phê duyệt', '99.5%'); };
-        newRow.innerHTML = '<td style="font-family:ui-monospace; font-weight:700">#CLM-9099</td><td style="font-weight:600">Highlands Coffee Corp. (Vừa quét)</td><td>Ăn uống & Tiếp khách</td><td style="font-weight:700; color:#fff">89.000 ₫</td><td><span style="color:var(--accent); font-weight:700">99.5%</span></td><td><span class="badge-ok">✓ Tự động duyệt</span></td>';
-        document.getElementById('claimsBody').prepend(newRow);
-        alert('🎉 Đã quét xong hóa đơn mới (#CLM-9099)! Động cơ AI đã TỰ ĐỘNG PHÊ DUYỆT thành công.');
-      }, 1300);
     }
   </script>
 </body>

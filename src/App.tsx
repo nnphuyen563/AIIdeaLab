@@ -136,6 +136,22 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setViewMode('initial');
+    setPendingIdea(null);
+  };
+
+  useEffect(() => {
+    const handleAuthLogoutEvent = () => {
+      handleLogout();
+    };
+    window.addEventListener('stitch-auth-logout', handleAuthLogoutEvent);
+    return () => {
+      window.removeEventListener('stitch-auth-logout', handleAuthLogoutEvent);
+    };
+  }, []);
+
   // If moved into the Main App UI, render StitchStudio
   if (viewMode === 'studio') {
     return (
@@ -148,6 +164,7 @@ export const App: React.FC = () => {
         theme={theme}
         onToggleTheme={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
         onBackToHero={() => setViewMode('initial')}
+        onLogout={handleLogout}
       />
     );
   }
@@ -361,7 +378,7 @@ export const App: React.FC = () => {
         pendingIdeaPrompt={pendingIdea?.prompt}
         onAuthSuccess={handleAuthSuccess}
         currentUser={currentUser}
-        onLogout={() => setCurrentUser(null)}
+        onLogout={handleLogout}
       />
     </div>
   );

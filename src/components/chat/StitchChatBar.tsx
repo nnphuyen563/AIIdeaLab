@@ -392,7 +392,7 @@ export const StitchChatBar: React.FC<StitchChatBarProps> = ({
               onClick={onOpenApiKeyModal}
             >
               <Key style={{ width: 12, height: 12 }} />
-              <span>{hasValidApiKey() ? (getDefaultAiConfig().provider === 'gemini' ? 'Gemini' : 'AI API') : 'API Key'}</span>
+              <span>{hasValidApiKey() ? (getDefaultAiConfig().provider === 'gemini' ? 'Gemini' : getDefaultAiConfig().provider === 'openai' ? 'OpenAI' : 'AI API') : 'API Key'}</span>
               <span className={`status-dot ${hasValidApiKey() ? 'green' : 'amber'}`} style={{ width: 5, height: 5 }} />
             </button>
 

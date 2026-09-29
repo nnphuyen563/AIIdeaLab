@@ -30,6 +30,7 @@ export const LockerAuthModal: React.FC<LockerAuthModalProps> = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isRateLimit, setIsRateLimit] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   if (!isOpen) return null;
@@ -37,6 +38,7 @@ export const LockerAuthModal: React.FC<LockerAuthModalProps> = ({
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+    setIsRateLimit(false);
     setIsLoading(true);
 
     try {
@@ -56,6 +58,7 @@ export const LockerAuthModal: React.FC<LockerAuthModalProps> = ({
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+    setIsRateLimit(false);
     setIsLoading(true);
 
     try {
@@ -63,10 +66,35 @@ export const LockerAuthModal: React.FC<LockerAuthModalProps> = ({
       if (res.success && res.user) {
         onAuthSuccess(res.user);
       } else {
+        if (res.isRateLimit || res.error?.includes('RATE_LIMIT') || res.error?.toLowerCase().includes('rate limit')) {
+          setIsRateLimit(true);
+        }
         setErrorMsg(res.error || 'Khởi tạo tài khoản không thành công.');
       }
     } catch (err: any) {
+      if (err.message?.toLowerCase().includes('rate limit')) {
+        setIsRateLimit(true);
+      }
       setErrorMsg(err.message || 'Lỗi kết nối cơ sở dữ liệu.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRegisterLocalFallback = async () => {
+    setErrorMsg(null);
+    setIsRateLimit(false);
+    setIsLoading(true);
+
+    try {
+      const res = await registerUser(handle, email, password, true);
+      if (res.success && res.user) {
+        onAuthSuccess(res.user);
+      } else {
+        setErrorMsg(res.error || 'Khởi tạo tài khoản cục bộ không thành công.');
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Lỗi kết nối lưu trữ.');
     } finally {
       setIsLoading(false);
     }
@@ -322,23 +350,99 @@ export const LockerAuthModal: React.FC<LockerAuthModalProps> = ({
         {/* Error Notification Banner */}
         {errorMsg && (
           <div style={{
-            padding: '0.85rem 1.15rem',
-            background: 'rgba(239, 68, 68, 0.16)',
-            border: '1.5px solid rgba(239, 68, 68, 0.45)',
-            borderRadius: '12px',
-            color: '#FCA5A5',
+            padding: isRateLimit ? '1.15rem' : '0.85rem 1.15rem',
+            background: isRateLimit ? 'rgba(245, 158, 11, 0.12)' : 'rgba(239, 68, 68, 0.16)',
+            border: isRateLimit ? '1.5px solid rgba(245, 158, 11, 0.5)' : '1.5px solid rgba(239, 68, 68, 0.45)',
+            borderRadius: '14px',
+            color: isRateLimit ? '#FDE68A' : '#FCA5A5',
             fontSize: '0.9375rem',
             marginBottom: '1.25rem',
             display: 'flex',
-            alignItems: 'center',
+            flexDirection: 'column',
             gap: '0.75rem'
           }}>
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ flexShrink: 0 }}>
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="8" x2="12" y2="12" />
-              <line x1="12" y1="16" x2="12.01" y2="16" />
-            </svg>
-            <span>{errorMsg}</span>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ flexShrink: 0, marginTop: '2px', color: isRateLimit ? '#F59E0B' : '#EF4444' }}>
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <div>
+                <strong style={{ display: 'block', fontSize: isRateLimit ? '0.95rem' : '0.9375rem', color: isRateLimit ? '#FCD34D' : '#FCA5A5', marginBottom: '0.25rem' }}>
+                  {isRateLimit ? 'Supabase đạt giới hạn gửi email (3 email/giờ)' : errorMsg}
+                </strong>
+                {isRateLimit && (
+                  <p style={{ margin: 0, fontSize: '0.8125rem', color: '#CBD5E1', lineHeight: 1.45 }}>
+                    Mặc định Supabase bật tính năng gửi email xác nhận. Gói miễn phí giới hạn 3 email/giờ nên báo lỗi khi thử đăng ký nhiều lần.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {isRateLimit && (
+              <div style={{
+                background: 'rgba(0, 0, 0, 0.35)',
+                border: '1px solid rgba(245, 158, 11, 0.25)',
+                borderRadius: '10px',
+                padding: '0.75rem 0.95rem',
+                fontSize: '0.8125rem',
+                color: '#E2E8F0',
+                lineHeight: 1.5
+              }}>
+                <div style={{ fontWeight: 700, color: '#38BDF8', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span>💡 Cách khắc phục triệt để trong 30 giây:</span>
+                </div>
+                <ol style={{ margin: 0, paddingLeft: '1.2rem', color: '#94A3B8' }}>
+                  <li>Vào <strong style={{ color: '#F8FAFC' }}>Supabase Dashboard</strong> ➔ Chọn dự án của bạn.</li>
+                  <li>Menu bên trái: Chọn <strong style={{ color: '#F8FAFC' }}>Authentication</strong> ➔ <strong style={{ color: '#F8FAFC' }}>Providers</strong> ➔ <strong style={{ color: '#F8FAFC' }}>Email</strong>.</li>
+                  <li>Tắt công tắc <strong style={{ color: '#FCD34D' }}>"Confirm email"</strong> (gạt về Tắt / Disable) ➔ Bấm <strong style={{ color: '#34D399' }}>Save</strong>.</li>
+                </ol>
+                <div style={{ marginTop: '0.45rem', fontSize: '0.75rem', color: '#94A3B8' }}>
+                  <em>Sau khi tắt, người dùng tạo tài khoản sẽ được kích hoạt tức thì không cần gửi email, không bao giờ bị rate limit!</em>
+                </div>
+
+                <div style={{ marginTop: '0.85rem', display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={handleRegisterLocalFallback}
+                    style={{
+                      height: '36px',
+                      padding: '0 0.95rem',
+                      background: '#F59E0B',
+                      color: '#090D16',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '0.8125rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      boxShadow: '0 4px 12px rgba(245, 158, 11, 0.4)'
+                    }}
+                  >
+                    <span>🚀 Tiếp tục bằng Locker Cục bộ ngay</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setTab('login'); setErrorMsg(null); setIsRateLimit(false); }}
+                    style={{
+                      height: '36px',
+                      padding: '0 0.85rem',
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      borderRadius: '8px',
+                      color: '#FFFFFF',
+                      fontSize: '0.8125rem',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Đã có tài khoản? Đăng nhập
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -515,12 +619,16 @@ export const LockerAuthModal: React.FC<LockerAuthModalProps> = ({
                 fontSize: '0.9375rem',
                 fontWeight: 600,
                 color: '#F8FAFC',
-                marginBottom: '0.5rem'
+                marginBottom: '0.35rem'
               }}>
-                Email Supabase (Tùy chọn)
+                Email Supabase (Bắt buộc để lưu trên Cloud Database) *
               </label>
+              <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginBottom: '0.5rem' }}>
+                Cần email hợp lệ &amp; mật khẩu tối thiểu 6 ký tự để tài khoản xuất hiện trong Supabase Auth.
+              </div>
               <input
                 type="email"
+                required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="designer@domain.com"
