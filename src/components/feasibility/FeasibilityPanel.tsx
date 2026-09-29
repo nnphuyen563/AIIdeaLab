@@ -15,7 +15,7 @@ import {
   Zap,
   Lightbulb,
   ChevronRight
-} from 'lucide-react';
+} from '../ui/icons/CyberIcons';
 import { FeasibilityScore, evaluateFeasibility, hasValidApiKey } from '../../services/aiService';
 
 interface FeasibilityPanelProps {

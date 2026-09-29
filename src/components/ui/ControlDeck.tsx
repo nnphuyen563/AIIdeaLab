@@ -7,7 +7,7 @@ import {
   Gamepad2, 
   Bot,
   Activity
-} from 'lucide-react';
+} from './icons/CyberIcons';
 import type { SimulationTelemetry } from '../canvas/PromptingIsAllYouNeed';
 import { soundFx } from '../canvas/soundFx';
 

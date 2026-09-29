@@ -1,5 +1,5 @@
 import React from 'react';
-import { Terminal, Cpu, Layers } from 'lucide-react';
+import { Terminal, Cpu, Layers } from './icons/CyberIcons';
 
 export const FooterStatusBar: React.FC = () => {
   return (

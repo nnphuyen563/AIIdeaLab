@@ -12,10 +12,10 @@ import {
   ShieldCheck, 
   Cpu, 
   Clipboard, 
-  Trash2,
-  X,
-  Check
-} from 'lucide-react';
+  Trash2, 
+  X, 
+  Check 
+} from '../ui/icons/CyberIcons';
 import { 
   AiConfig, 
   AiProvider, 

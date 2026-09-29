@@ -36,6 +36,7 @@ interface PromptingIsAllYouNeedProps {
   isInteractive?: boolean;
   headline?: string;
   subheadline?: string;
+  theme?: 'dark' | 'light';
 }
 
 export const PromptingIsAllYouNeed: React.FC<PromptingIsAllYouNeedProps> = ({
@@ -44,7 +45,8 @@ export const PromptingIsAllYouNeed: React.FC<PromptingIsAllYouNeedProps> = ({
   speedMultiplier = 1,
   isInteractive = false,
   headline = 'IDEA',
-  subheadline = 'IS ALL YOU NEED'
+  subheadline = 'IS ALL YOU NEED',
+  theme = 'dark'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -215,14 +217,15 @@ export const PromptingIsAllYouNeed: React.FC<PromptingIsAllYouNeedProps> = ({
         }
       }
 
-      // Clear Canvas with OLED true black
+      // Clear Canvas with theme-aware background
+      const isLight = theme === 'light';
       ctx.save();
       ctx.scale(dpr, dpr);
-      ctx.fillStyle = '#000000';
+      ctx.fillStyle = isLight ? '#F8F9FB' : '#000000';
       ctx.fillRect(0, 0, width, height);
 
       // Draw subtle retro grid backdrop
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.025)';
+      ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.025)';
       ctx.lineWidth = 1;
       const gridSize = 40;
       for (let x = 0; x < width; x += gridSize) {
@@ -262,8 +265,8 @@ export const PromptingIsAllYouNeed: React.FC<PromptingIsAllYouNeedProps> = ({
       s.paddles.right.y = Math.max(76, Math.min(height - 260 - s.paddles.right.height, s.paddles.right.y));
 
       // Draw Paddles
-      ctx.fillStyle = '#FFFFFF';
-      ctx.shadowColor = 'rgba(255, 255, 255, 0.4)';
+      ctx.fillStyle = isLight ? '#0F172A' : '#FFFFFF';
+      ctx.shadowColor = isLight ? 'rgba(15, 23, 42, 0.2)' : 'rgba(255, 255, 255, 0.4)';
       ctx.shadowBlur = 8;
       // Top
       ctx.fillRect(s.paddles.top.x, s.paddles.top.y, s.paddles.top.width, s.paddles.top.height);
@@ -396,7 +399,9 @@ export const PromptingIsAllYouNeed: React.FC<PromptingIsAllYouNeedProps> = ({
                 vy: Math.sin(pAngle) * pSpeed,
                 size: Math.max(2, p.size * 0.4),
                 life: 1.0,
-                color: Math.random() > 0.3 ? '#FFFFFF' : '#10B981'
+                color: Math.random() > 0.3 
+                  ? (isLight ? '#0F172A' : '#FFFFFF') 
+                  : (isLight ? '#059669' : '#10B981')
               });
             }
           }
@@ -404,10 +409,10 @@ export const PromptingIsAllYouNeed: React.FC<PromptingIsAllYouNeedProps> = ({
 
         // Render pixel
         if (p.isHit) {
-          ctx.fillStyle = '#222222';
+          ctx.fillStyle = isLight ? '#E2E8F0' : '#222222';
           ctx.fillRect(p.x, p.y, p.size, p.size);
         } else {
-          ctx.fillStyle = '#FFFFFF';
+          ctx.fillStyle = isLight ? '#0A0D14' : '#FFFFFF';
           ctx.fillRect(p.x, p.y, p.size, p.size);
         }
       }
@@ -430,8 +435,8 @@ export const PromptingIsAllYouNeed: React.FC<PromptingIsAllYouNeedProps> = ({
       }
 
       // Draw Ball
-      ctx.fillStyle = '#FFFFFF';
-      ctx.shadowColor = 'rgba(255, 255, 255, 0.7)';
+      ctx.fillStyle = isLight ? '#0F172A' : '#FFFFFF';
+      ctx.shadowColor = isLight ? 'rgba(15, 23, 42, 0.35)' : 'rgba(255, 255, 255, 0.7)';
       ctx.shadowBlur = 10;
       ctx.beginPath();
       ctx.arc(s.ball.x, s.ball.y, s.ball.radius, 0, Math.PI * 2);
@@ -446,7 +451,7 @@ export const PromptingIsAllYouNeed: React.FC<PromptingIsAllYouNeedProps> = ({
     return () => {
       cancelAnimationFrame(animId);
     };
-  }, [speedMultiplier, isInteractive, onTelemetryUpdate]);
+  }, [speedMultiplier, isInteractive, onTelemetryUpdate, theme]);
 
   return (
     <div className="pixel-canvas-container">

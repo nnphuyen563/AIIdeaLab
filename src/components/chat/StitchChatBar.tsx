@@ -8,14 +8,14 @@ import {
   ChevronDown, 
   Mic, 
   MicOff, 
-  ArrowUp,
-  Check,
-  Key,
-  Loader2,
-  X,
-  FileCode,
-  RotateCcw
-} from 'lucide-react';
+  ArrowUp, 
+  Check, 
+  Key, 
+  Loader2, 
+  X, 
+  FileCode, 
+  RotateCcw 
+} from '../ui/icons/CyberIcons';
 import { 
   hasValidApiKey, 
   getDefaultAiConfig, 

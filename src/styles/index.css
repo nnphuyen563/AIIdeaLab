@@ -1,6 +1,7 @@
 @import './tokens.css';
 @import './studio.css';
 @import './feasibility.css';
+@import './validator.css';
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -27,7 +28,7 @@ html, body, #root {
   height: 100vh;
   z-index: 0;
   pointer-events: none;
-  background: #000000;
+  background: var(--color-bg-base);
   overflow: hidden;
 }
 
@@ -628,4 +629,139 @@ html, body, #root {
     align-items: flex-start;
     gap: 0.5rem;
   }
+}
+
+/* ==========================================================================
+   BRIGHT / LIGHT MODE HERO & CHAT SYSTEM
+   ========================================================================== */
+[data-theme="light"],
+body.theme-light {
+  background-color: #F8F9FB;
+  color: #0F172A;
+}
+
+[data-theme="light"] .brand-icon-box {
+  background: rgba(15, 23, 42, 0.05);
+  border-color: rgba(15, 23, 42, 0.12);
+  color: #0F172A;
+}
+
+[data-theme="light"] .brand-version {
+  background: rgba(15, 23, 42, 0.06);
+  border-color: rgba(15, 23, 42, 0.12);
+  color: #475569;
+}
+
+[data-theme="light"] .stitch-chat-card {
+  background: rgba(255, 255, 255, 0.94);
+  border: 1.5px solid rgba(15, 23, 42, 0.12);
+  box-shadow: 0 20px 50px -10px rgba(15, 23, 42, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+[data-theme="light"] .stitch-chat-card:focus-within {
+  border-color: rgba(15, 23, 42, 0.3);
+  box-shadow: 0 24px 60px -8px rgba(15, 23, 42, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+[data-theme="light"] .stitch-chat-glow-rim {
+  background: linear-gradient(90deg, transparent, rgba(15, 23, 42, 0.1), transparent);
+}
+
+[data-theme="light"] .stitch-chat-textarea {
+  color: #0F172A;
+  caret-color: #0F172A;
+}
+
+[data-theme="light"] .stitch-chat-textarea::placeholder {
+  color: rgba(15, 23, 42, 0.45);
+}
+
+[data-theme="light"] .stitch-action-btn {
+  background: rgba(15, 23, 42, 0.05);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  color: rgba(15, 23, 42, 0.7);
+}
+
+[data-theme="light"] .stitch-action-btn:hover {
+  background: rgba(15, 23, 42, 0.1);
+  color: #0F172A;
+  border-color: rgba(15, 23, 42, 0.2);
+}
+
+[data-theme="light"] .stitch-platform-capsule {
+  background: rgba(15, 23, 42, 0.05);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+}
+
+[data-theme="light"] .stitch-capsule-item {
+  color: rgba(15, 23, 42, 0.65);
+}
+
+[data-theme="light"] .stitch-capsule-item:hover {
+  color: #0F172A;
+}
+
+[data-theme="light"] .stitch-capsule-item.active {
+  background: #0F172A;
+  color: #FFFFFF;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.2);
+}
+
+[data-theme="light"] .stitch-model-pill {
+  background: rgba(15, 23, 42, 0.05);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  color: #0F172A;
+}
+
+[data-theme="light"] .stitch-model-pill:hover {
+  background: rgba(15, 23, 42, 0.1);
+  border-color: rgba(15, 23, 42, 0.2);
+}
+
+[data-theme="light"] .stitch-submit-btn {
+  background: rgba(15, 23, 42, 0.08);
+  color: rgba(15, 23, 42, 0.35);
+}
+
+[data-theme="light"] .stitch-submit-btn.ready {
+  background: #0F172A;
+  color: #FFFFFF;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25);
+}
+
+[data-theme="light"] .stitch-submit-btn.ready:hover {
+  background: #1E293B;
+  color: #FFFFFF;
+}
+
+[data-theme="light"] .active-preset-capsule {
+  background: rgba(15, 23, 42, 0.06) !important;
+  border-color: rgba(15, 23, 42, 0.16) !important;
+  color: #0F172A !important;
+}
+
+[data-theme="light"] .stitch-preset-popover,
+[data-theme="light"] .stitch-model-dropdown {
+  background: rgba(255, 255, 255, 0.98);
+  border: 1.5px solid rgba(15, 23, 42, 0.14);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.15);
+  color: #0F172A;
+}
+
+[data-theme="light"] .footer-status-bar {
+  background: rgba(255, 255, 255, 0.9);
+  border-top: 1px solid rgba(15, 23, 42, 0.09);
+  color: #475569;
+}
+
+[data-theme="light"] .footer-status-item {
+  color: #475569;
+}
+
+[data-theme="light"] .footer-link {
+  color: #475569;
+}
+
+[data-theme="light"] .footer-link:hover {
+  color: #0F172A;
 }

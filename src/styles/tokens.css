@@ -1,5 +1,5 @@
 :root {
-  /* Base & Backgrounds */
+  /* Base & Backgrounds (Default Dark) */
   --color-bg-base: #000000;
   --color-surface-subtle: rgba(255, 255, 255, 0.03);
   --color-surface-elevated: rgba(18, 18, 18, 0.75);
@@ -27,4 +27,32 @@
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "JetBrains Mono", "Courier New", monospace;
   --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-display: "Outfit", var(--font-sans);
+}
+
+/* Bright & Light Mode: Clean Architectural Studio / Gallery Monolith */
+[data-theme="light"],
+body.theme-light {
+  /* Alabaster & Crisp Clean Backgrounds */
+  --color-bg-base: #F8F9FB;
+  --color-surface-subtle: rgba(0, 0, 0, 0.03);
+  --color-surface-elevated: rgba(255, 255, 255, 0.95);
+  --color-surface-border: rgba(0, 0, 0, 0.12);
+  --color-surface-border-subtle: rgba(0, 0, 0, 0.06);
+
+  /* Inverted High-Contrast Pixel Tokens */
+  --pixel-active: #0A0D14;
+  --pixel-hit: #E2E8F0;
+  --pixel-glow: rgba(0, 0, 0, 0.08);
+
+  /* Status Colors calibrated for light backgrounds */
+  --color-accent-emerald: #059669;
+  --color-accent-emerald-bright: #10B981;
+  --color-accent-emerald-dim: rgba(5, 150, 105, 0.12);
+  --color-accent-amber: #D97706;
+  --color-accent-amber-dim: rgba(217, 119, 6, 0.12);
+
+  /* Sharp Dark Typography on Crisp Light Surfaces */
+  --text-primary: #0F172A;
+  --text-secondary: #334155;
+  --text-muted: #64748B;
 }

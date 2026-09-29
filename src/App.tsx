@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PromptingIsAllYouNeed, SimulationTelemetry } from './components/canvas/PromptingIsAllYouNeed';
 import { StitchChatBar } from './components/chat/StitchChatBar';
 import { StitchStudio } from './components/studio/StitchStudio';
@@ -8,7 +8,7 @@ import {
   AppConceptResult, 
   generateAppConcept 
 } from './services/aiService';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Sun, Moon } from './components/ui/icons/CyberIcons';
 
 import { LockerAuthModal } from './components/auth/LockerAuthModal';
 import { 
@@ -26,6 +26,18 @@ export const App: React.FC = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => getCurrentAuthUser());
   const [activeVariantCount, setActiveVariantCount] = useState<number>(3);
+  
+  // Theme state: defaults to 'light' per user prompt, persists in localStorage
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('stitch_theme');
+    return (saved === 'dark' || saved === 'light') ? saved : 'light';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    document.body.className = theme === 'light' ? 'theme-light' : 'theme-dark';
+    localStorage.setItem('stitch_theme', theme);
+  }, [theme]);
   const [pendingIdea, setPendingIdea] = useState<{
     prompt: string;
     mode: 'app' | 'web';
@@ -133,6 +145,8 @@ export const App: React.FC = () => {
         initialPresetId={activePresetId}
         initialCustomDesignMd={activeCustomDesignMd}
         initialVariantCount={activeVariantCount}
+        theme={theme}
+        onToggleTheme={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
         onBackToHero={() => setViewMode('initial')}
       />
     );
@@ -146,10 +160,73 @@ export const App: React.FC = () => {
         resetSignal={resetSignal}
         headline={headline}
         subheadline={subheadline}
+        theme={theme}
       />
 
-      {/* Top Right Locker Auth Gateway (Fixed coordinate, large target >= 48px, high contrast) */}
-      <div style={{ position: 'fixed', top: '1.5rem', right: '1.75rem', zIndex: 9999, pointerEvents: 'auto' }}>
+      {/* Top Right Header Controls: Theme Switcher + Locker Auth Gateway */}
+      <div style={{ 
+        position: 'fixed', 
+        top: '1.5rem', 
+        right: '1.75rem', 
+        zIndex: 9999, 
+        pointerEvents: 'auto',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.75rem'
+      }}>
+        {/* Modern Neo-Brutalist Theme Toggle Button */}
+        <button
+          type="button"
+          onClick={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
+          title={theme === 'light' ? 'Chuyển sang chế độ Tối (Dark mode)' : 'Chuyển sang chế độ Sáng (Light mode)'}
+          aria-label="Chuyển đổi giao diện Sáng / Tối"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            height: '48px',
+            padding: '0 1rem',
+            background: theme === 'light' ? '#FFFFFF' : '#0B0F19',
+            border: theme === 'light' ? '1.5px solid rgba(15, 23, 42, 0.16)' : '1.5px solid rgba(255, 255, 255, 0.28)',
+            borderRadius: '12px',
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            color: theme === 'light' ? '#0F172A' : '#FFFFFF',
+            cursor: 'pointer',
+            boxShadow: theme === 'light' ? '0 4px 14px rgba(15, 23, 42, 0.08)' : '0 10px 30px rgba(0, 0, 0, 0.8)',
+            transition: 'all 0.15s ease',
+            pointerEvents: 'auto'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-1px)';
+            if (theme === 'light') {
+              e.currentTarget.style.borderColor = '#059669';
+              e.currentTarget.style.background = '#F8FAFC';
+            } else {
+              e.currentTarget.style.borderColor = '#10B981';
+              e.currentTarget.style.background = '#151C2C';
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'none';
+            e.currentTarget.style.borderColor = theme === 'light' ? 'rgba(15, 23, 42, 0.16)' : 'rgba(255, 255, 255, 0.28)';
+            e.currentTarget.style.background = theme === 'light' ? '#FFFFFF' : '#0B0F19';
+          }}
+        >
+          {theme === 'light' ? (
+            <>
+              <Moon style={{ width: 17, height: 17, color: '#475569' }} />
+              <span>Tối</span>
+            </>
+          ) : (
+            <>
+              <Sun style={{ width: 17, height: 17, color: '#F59E0B' }} />
+              <span>Sáng</span>
+            </>
+          )}
+        </button>
+
+        {/* Locker Auth Gateway */}
         {currentUser ? (
           <button
             type="button"
@@ -160,36 +237,36 @@ export const App: React.FC = () => {
               gap: '0.75rem',
               height: '48px',
               padding: '0 1.25rem',
-              background: '#0B0F19',
-              border: '1.5px solid rgba(255, 255, 255, 0.28)',
+              background: theme === 'light' ? '#FFFFFF' : '#0B0F19',
+              border: theme === 'light' ? '1.5px solid rgba(15, 23, 42, 0.16)' : '1.5px solid rgba(255, 255, 255, 0.28)',
               borderRadius: '12px',
               fontSize: '0.9375rem',
               fontWeight: 600,
-              color: '#FFFFFF',
+              color: theme === 'light' ? '#0F172A' : '#FFFFFF',
               cursor: 'pointer',
-              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.8)',
+              boxShadow: theme === 'light' ? '0 4px 14px rgba(15, 23, 42, 0.08)' : '0 10px 30px rgba(0, 0, 0, 0.8)',
               transition: 'all 0.15s ease',
               pointerEvents: 'auto'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = '#151C2C';
-              e.currentTarget.style.borderColor = '#10B981';
+              e.currentTarget.style.background = theme === 'light' ? '#F8FAFC' : '#151C2C';
+              e.currentTarget.style.borderColor = theme === 'light' ? '#059669' : '#10B981';
               e.currentTarget.style.transform = 'translateY(-1px)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = '#0B0F19';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.28)';
+              e.currentTarget.style.background = theme === 'light' ? '#FFFFFF' : '#0B0F19';
+              e.currentTarget.style.borderColor = theme === 'light' ? 'rgba(15, 23, 42, 0.16)' : 'rgba(255, 255, 255, 0.28)';
               e.currentTarget.style.transform = 'none';
             }}
           >
             <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#10B981' }} />
-            <span>Locker: <strong style={{ color: '#34D399' }}>{currentUser.handle}</strong></span>
+            <span>Locker: <strong style={{ color: theme === 'light' ? '#059669' : '#34D399' }}>{currentUser.handle}</strong></span>
             <span style={{
               fontSize: '0.75rem',
               padding: '0.2rem 0.5rem',
-              background: 'rgba(255, 255, 255, 0.1)',
+              background: theme === 'light' ? 'rgba(15, 23, 42, 0.07)' : 'rgba(255, 255, 255, 0.1)',
               borderRadius: '6px',
-              color: '#CBD5E1'
+              color: theme === 'light' ? '#475569' : '#CBD5E1'
             }}>
               Đổi
             </span>
@@ -204,33 +281,33 @@ export const App: React.FC = () => {
               gap: '0.75rem',
               height: '48px',
               padding: '0 1.5rem',
-              background: '#0B0F19',
-              border: '1.5px solid rgba(255, 255, 255, 0.3)',
+              background: theme === 'light' ? '#FFFFFF' : '#0B0F19',
+              border: theme === 'light' ? '1.5px solid rgba(15, 23, 42, 0.16)' : '1.5px solid rgba(255, 255, 255, 0.3)',
               borderRadius: '12px',
               fontSize: '1rem',
               fontWeight: 700,
-              color: '#FFFFFF',
+              color: theme === 'light' ? '#0F172A' : '#FFFFFF',
               cursor: 'pointer',
-              boxShadow: '0 2px 6px rgba(0, 0, 0, 0.5)',
+              boxShadow: theme === 'light' ? '0 4px 14px rgba(15, 23, 42, 0.08)' : '0 2px 6px rgba(0, 0, 0, 0.5)',
               transition: 'all 0.15s ease',
               pointerEvents: 'auto'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = '#151C2C';
-              e.currentTarget.style.borderColor = '#10B981';
+              e.currentTarget.style.background = theme === 'light' ? '#F8FAFC' : '#151C2C';
+              e.currentTarget.style.borderColor = theme === 'light' ? '#059669' : '#10B981';
               e.currentTarget.style.transform = 'translateY(-1px)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = '#0B0F19';
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+              e.currentTarget.style.background = theme === 'light' ? '#FFFFFF' : '#0B0F19';
+              e.currentTarget.style.borderColor = theme === 'light' ? 'rgba(15, 23, 42, 0.16)' : 'rgba(255, 255, 255, 0.3)';
               e.currentTarget.style.transform = 'none';
             }}
           >
             {/* Custom SVG Padlock */}
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#10B981" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke={theme === 'light' ? '#059669' : '#10B981'} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-              <circle cx="12" cy="16" r="1.5" fill="#10B981" />
+              <circle cx="12" cy="16" r="1.5" fill={theme === 'light' ? '#059669' : '#10B981'} />
             </svg>
             <span>Đăng nhập Locker</span>
           </button>

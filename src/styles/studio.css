@@ -2202,6 +2202,8 @@
   background-size: 24px 24px;
   overflow: hidden;
   cursor: default;
+  touch-action: none;
+  overscroll-behavior: none;
 }
 
 .stitch-exact-canvas.panning {
@@ -2275,6 +2277,35 @@
   height: calc(100% - 32px);
   border: none;
   background: #000000;
+}
+
+/* Interactive Ghost Card to Add New Screen */
+.exact-add-screen-ghost {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.exact-add-screen-ghost:hover {
+  border-color: #10B981;
+  background: rgba(16, 185, 129, 0.06);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+}
+
+.exact-add-screen-ghost .ghost-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
 }
 
 /* Floating Spec Card (Top Left) */
@@ -2617,6 +2648,583 @@
 .exact-hud-icon-btn:hover {
   color: #FFFFFF;
 }
+
+/* ========================================================================== */
+/* CANVAS COPILOT: CONTEXTUAL CANVAS CHAT & NON-TECH INSPECTOR               */
+/* ========================================================================== */
+
+.exact-context-capsule {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: rgba(13, 17, 26, 0.95);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 12px rgba(16, 185, 129, 0.12);
+  border-radius: 12px;
+  padding: 0.45rem 0.85rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  color: #F8FAFC;
+  backdrop-filter: blur(12px);
+  animation: contextSlideUp 0.2s ease-out;
+  flex-wrap: wrap;
+}
+
+@keyframes contextSlideUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.exact-context-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10B981;
+  box-shadow: 0 0 8px #10B981;
+  animation: pulseDot 2s infinite;
+}
+
+@keyframes pulseDot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.6; }
+}
+
+.exact-context-label {
+  color: #94A3B8;
+  font-size: 0.71875rem;
+}
+
+.exact-context-title {
+  color: #FFFFFF;
+  font-weight: 600;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exact-context-variant-tag {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: #38BDF8;
+}
+
+.exact-context-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+
+.exact-chip-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #CBD5E1;
+  border-radius: 6px;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.71875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+
+.exact-chip-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #FFFFFF;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.exact-chip-btn.active {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: #10B981;
+  color: #34D399;
+  font-weight: 600;
+}
+
+.exact-context-close-btn {
+  background: none;
+  border: none;
+  color: #64748B;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0.2rem 0.35rem;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.exact-context-close-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #F87171;
+}
+
+/* Screen Card Header Action for Copilot Chat */
+.screen-card-chat-btn {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #34D399;
+  border-radius: 6px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.15s ease;
+}
+
+.screen-card-chat-btn:hover {
+  background: rgba(16, 185, 129, 0.25);
+  border-color: #10B981;
+  color: #FFFFFF;
+}
+
+/* Floating Right Drawer: Canvas Copilot Inspector */
+.exact-copilot-drawer {
+  position: fixed;
+  top: 56px;
+  right: 18px;
+  width: 460px;
+  max-width: calc(100vw - 36px);
+  height: calc(100vh - 76px);
+  background: #0B0E17;
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85), 0 0 1px rgba(255, 255, 255, 0.2);
+  display: flex;
+  flex-direction: column;
+  z-index: 990;
+  overflow: hidden;
+  backdrop-filter: blur(20px);
+  animation: drawerSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes drawerSlideIn {
+  from { opacity: 0; transform: translateX(25px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.copilot-drawer-header {
+  padding: 0.85rem 1rem;
+  background: #111624;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.copilot-drawer-title-area {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.copilot-mode-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  background: #07090F;
+  padding: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.copilot-tab-btn {
+  background: none;
+  border: none;
+  color: #94A3B8;
+  font-size: 0.71875rem;
+  font-weight: 500;
+  padding: 0.45rem 0.3rem;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s ease;
+}
+
+.copilot-tab-btn:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.copilot-tab-btn.active {
+  background: #182032;
+  color: #38BDF8;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.copilot-messages-feed {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  scroll-behavior: smooth;
+}
+
+.copilot-message-bubble {
+  max-width: 92%;
+  border-radius: 12px;
+  padding: 0.75rem 0.95rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.copilot-message-bubble.user {
+  align-self: flex-end;
+  background: #1E293B;
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-bottom-right-radius: 4px;
+}
+
+.copilot-message-bubble.assistant {
+  align-self: flex-start;
+  background: #0F1420;
+  color: #E2E8F0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom-left-radius: 4px;
+}
+
+/* Usability Card in Assistant Message */
+.nontech-usability-card {
+  margin-top: 0.65rem;
+  background: #141926;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 0.85rem;
+}
+
+.usability-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.65rem;
+}
+
+.usability-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.usability-status-badge.excellent {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34D399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.usability-status-badge.good {
+  background: rgba(245, 158, 11, 0.15);
+  color: #FBBF24;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.usability-status-badge.needs_attention {
+  background: rgba(239, 68, 68, 0.15);
+  color: #F87171;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.nontech-section-block {
+  background: #0C0F18;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 0.65rem 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.nontech-section-label {
+  font-size: 0.71875rem;
+  font-weight: 700;
+  color: #38BDF8;
+  margin-bottom: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Feasibility & How-to Card in Assistant Message */
+.nontech-feasibility-card {
+  margin-top: 0.65rem;
+  background: #141926;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 0.85rem;
+}
+
+.recipe-step-item {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+  align-items: flex-start;
+}
+
+.recipe-step-number {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #10B981;
+  color: #000000;
+  font-weight: 700;
+  font-size: 0.6875rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.redesign-action-box {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.copilot-drawer-input-area {
+  padding: 0.85rem 1rem;
+  background: #0A0D14;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* ==========================================================================
+   BRIGHT / LIGHT MODE STITCH STUDIO SYSTEM
+   ========================================================================== */
+[data-theme="light"] .stitch-exact-container {
+  background-color: #F8F9FB;
+  color: #0F172A;
+}
+
+[data-theme="light"] .stitch-exact-topbar {
+  background: #FFFFFF;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="light"] .exact-menu-btn {
+  color: #334155;
+}
+
+[data-theme="light"] .exact-menu-btn:hover {
+  background: rgba(15, 23, 42, 0.06);
+  color: #0F172A;
+}
+
+[data-theme="light"] .exact-doc-title {
+  color: #0F172A;
+  font-weight: 600;
+}
+
+[data-theme="light"] .exact-topbar-pill-btn {
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  color: #334155;
+}
+
+[data-theme="light"] .exact-topbar-pill-btn:hover {
+  background: rgba(15, 23, 42, 0.08);
+  border-color: rgba(15, 23, 42, 0.2);
+  color: #0F172A;
+}
+
+[data-theme="light"] .exact-play-btn {
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  color: #334155;
+}
+
+[data-theme="light"] .exact-play-btn:hover {
+  background: rgba(15, 23, 42, 0.08);
+  color: #059669;
+}
+
+[data-theme="light"] .exact-avatar-btn {
+  background: #FFFFFF;
+  border: 1.5px solid #059669;
+  color: #059669;
+}
+
+[data-theme="light"] .stitch-exact-canvas {
+  background-color: #F1F5F9;
+  background-image: radial-gradient(rgba(15, 23, 42, 0.12) 1px, transparent 1px);
+}
+
+[data-theme="light"] .exact-floating-spec,
+[data-theme="light"] .exact-floating-history,
+[data-theme="light"] .exact-floating-toolbar {
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  color: #0F172A;
+}
+
+[data-theme="light"] .exact-tool-btn {
+  color: #64748B;
+}
+
+[data-theme="light"] .exact-tool-btn:hover {
+  background: rgba(15, 23, 42, 0.06);
+  color: #0F172A;
+}
+
+[data-theme="light"] .exact-tool-btn.active {
+  background: #0F172A;
+  color: #FFFFFF;
+}
+
+[data-theme="light"] .exact-history-item {
+  color: #475569;
+}
+
+[data-theme="light"] .exact-history-item:hover {
+  background: rgba(15, 23, 42, 0.05);
+  color: #0F172A;
+}
+
+[data-theme="light"] .exact-agent-log-btn {
+  color: #475569;
+  border-top-color: rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="light"] .exact-agent-log-btn:hover {
+  color: #0F172A;
+}
+
+[data-theme="light"] .exact-prompt-card {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1.5px solid rgba(15, 23, 42, 0.12);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.1);
+}
+
+[data-theme="light"] .exact-prompt-textarea {
+  color: #0F172A;
+  caret-color: #0F172A;
+}
+
+[data-theme="light"] .exact-prompt-textarea::placeholder {
+  color: rgba(15, 23, 42, 0.45);
+}
+
+[data-theme="light"] .exact-action-icon-btn {
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  color: #475569;
+}
+
+[data-theme="light"] .exact-action-icon-btn:hover {
+  background: rgba(15, 23, 42, 0.08);
+  color: #0F172A;
+}
+
+[data-theme="light"] .exact-submit-circle-btn {
+  background: #0F172A;
+  color: #FFFFFF;
+}
+
+[data-theme="light"] .exact-submit-circle-btn:hover {
+  background: #1E293B;
+}
+
+[data-theme="light"] .exact-suggestion-pill {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  color: #334155;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+}
+
+[data-theme="light"] .exact-suggestion-pill:hover {
+  background: #FFFFFF;
+  border-color: rgba(15, 23, 42, 0.25);
+  color: #0F172A;
+}
+
+[data-theme="light"] .exact-screen-card {
+  background: #FFFFFF;
+  border-color: rgba(15, 23, 42, 0.12);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="light"] .exact-screen-card.selected {
+  border-color: #059669;
+  box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.35), 0 12px 35px rgba(15, 23, 42, 0.12);
+}
+
+[data-theme="light"] .exact-screen-card-header {
+  background: #F8FAFC;
+  border-bottom-color: rgba(15, 23, 42, 0.08);
+  color: #334155;
+}
+
+[data-theme="light"] .screen-card-chat-btn {
+  background: rgba(5, 150, 105, 0.08);
+  border-color: rgba(5, 150, 105, 0.25);
+  color: #059669;
+}
+
+[data-theme="light"] .screen-card-chat-btn:hover {
+  background: rgba(5, 150, 105, 0.16);
+  border-color: #059669;
+}
+
+[data-theme="light"] .canvas-inspector-drawer {
+  background: rgba(255, 255, 255, 0.98);
+  border-left: 1.5px solid rgba(15, 23, 42, 0.12);
+  box-shadow: -15px 0 40px rgba(15, 23, 42, 0.1);
+  color: #0F172A;
+}
+
+[data-theme="light"] .copilot-drawer-header {
+  background: #F8FAFC;
+  border-bottom-color: rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="light"] .copilot-action-chip {
+  background: rgba(15, 23, 42, 0.04);
+  border-color: rgba(15, 23, 42, 0.1);
+  color: #334155;
+}
+
+[data-theme="light"] .copilot-action-chip:hover {
+  background: rgba(15, 23, 42, 0.08);
+  color: #0F172A;
+}
+
+[data-theme="light"] .copilot-msg-bubble.user {
+  background: #0F172A;
+  color: #FFFFFF;
+}
+
+[data-theme="light"] .copilot-msg-bubble.assistant {
+  background: #F1F5F9;
+  border-color: rgba(15, 23, 42, 0.08);
+  color: #0F172A;
+}
+
+[data-theme="light"] .copilot-drawer-input-area {
+  background: #F8FAFC;
+  border-top-color: rgba(15, 23, 42, 0.08);
+}
+
 
 
 

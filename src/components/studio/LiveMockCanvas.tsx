@@ -7,7 +7,7 @@ import {
   Copy, 
   Check, 
   Sparkles
-} from 'lucide-react';
+} from '../ui/icons/CyberIcons';
 
 interface LiveMockCanvasProps {
   htmlContent: string;
