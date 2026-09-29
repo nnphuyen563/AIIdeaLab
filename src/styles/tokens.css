@@ -1,0 +1,30 @@
+:root {
+  /* Base & Backgrounds */
+  --color-bg-base: #000000;
+  --color-surface-subtle: rgba(255, 255, 255, 0.03);
+  --color-surface-elevated: rgba(18, 18, 18, 0.75);
+  --color-surface-border: rgba(255, 255, 255, 0.12);
+  --color-surface-border-subtle: rgba(255, 255, 255, 0.06);
+
+  /* Pixel Simulation Tokens */
+  --pixel-active: #FFFFFF;
+  --pixel-hit: #333333;
+  --pixel-glow: rgba(255, 255, 255, 0.18);
+
+  /* Accent & Status Phosphors */
+  --color-accent-emerald: #10B981;
+  --color-accent-emerald-bright: #34D399;
+  --color-accent-emerald-dim: rgba(16, 185, 129, 0.12);
+  --color-accent-amber: #F59E0B;
+  --color-accent-amber-dim: rgba(245, 158, 11, 0.12);
+
+  /* Text & Foregrounds */
+  --text-primary: #FFFFFF;
+  --text-secondary: rgba(255, 255, 255, 0.70);
+  --text-muted: rgba(255, 255, 255, 0.40);
+
+  /* Typography Stacks */
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "JetBrains Mono", "Courier New", monospace;
+  --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Outfit", var(--font-sans);
+}
